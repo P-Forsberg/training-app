@@ -100,6 +100,22 @@ export async function commit(changes: Change[], options: CommitOptions): Promise
   return { batchId };
 }
 
+let queue: Promise<unknown> = Promise.resolve();
+
+/**
+ * Runs read-then-write commands one at a time. Without this, a field saved on
+ * blur and a button pressed right after could both read the old state (two
+ * logs for one session, or a planned value overwriting a typed one).
+ * Serialized commands must not call each other.
+ */
+export function serial<A extends unknown[], R>(fn: (...args: A) => Promise<R>): (...args: A) => Promise<R> {
+  return (...args: A) => {
+    const result = queue.then(() => fn(...args));
+    queue = result.catch(() => undefined);
+    return result;
+  };
+}
+
 /** Soft delete: the row stays, deleted_at is set. */
 export function softDeleted<T extends { deleted_at: string | null }>(row: T): T {
   return { ...row, deleted_at: nowStamp() };

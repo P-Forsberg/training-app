@@ -5,7 +5,7 @@ import { syntheticKullamannen } from '@/import/fixtures/syntheticKullamannen';
 import { db } from '../local/db';
 import { resetOwnerCache } from '../session';
 import { commit, LayerViolationError } from '../sync/commit';
-import { createShoe, logPlannedRun, logPlannedSet, movePlannedSession, setPlannedStatus } from './logging';
+import { completePlannedSession, createShoe, logPlannedRun, logPlannedSet, movePlannedSession, setPlannedStatus } from './logging';
 import { importProgram } from './program';
 import { undoBatch } from './undo';
 
@@ -97,6 +97,25 @@ describe('logging never touches the planned layer', () => {
     const moved = logged.find((l) => l.planned_session_id === strength.id)!;
     expect(moved).toMatchObject({ status: 'moved', date: '2026-09-22', moved_from: strength.date });
     expect((await db.shoes.get(shoe))!.retire_km).toBe(600);
+  });
+
+  it('a typed distance saved on blur is not overwritten by "Klart" pressed right after', async () => {
+    const { programId } = await importSynthetic();
+    const run = (await db.planned_sessions.where('program_id').equals(programId).toArray()).find((s) => s.type === 'run')!;
+    // Fired without awaiting, like blur followed by click.
+    const a = logPlannedRun(run.id, { distance_km: 7.5 });
+    const b = completePlannedSession(run.id, 'done', 6);
+    await Promise.all([a, b]);
+    expect((await db.logged_sessions.toArray()).filter((l) => !l.deleted_at)).toHaveLength(1);
+    expect((await db.logged_runs.toArray())[0]!.distance_km).toBe(7.5);
+    expect((await db.logged_sessions.toArray())[0]!.status).toBe('done');
+  });
+
+  it('"Klart" without a typed distance logs the planned distance', async () => {
+    const { programId } = await importSynthetic();
+    const run = (await db.planned_sessions.where('program_id').equals(programId).toArray()).find((s) => s.type === 'run')!;
+    await completePlannedSession(run.id, 'done', 5);
+    expect((await db.logged_runs.toArray())[0]!.distance_km).toBe(5);
   });
 
   it('editing the same run twice updates one row', async () => {

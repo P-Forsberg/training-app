@@ -2,10 +2,10 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import { href, navigate } from '@/app/router';
 import {
+  completePlannedSession,
   deleteLoggedSession,
   logFreeRun,
   logPlannedRun,
-  setPlannedStatus,
   updateLoggedRun,
   updateLoggedSession,
   updatePlannedSessionLog,
@@ -116,11 +116,7 @@ function PlannedBlock({ view }: { view: PlannedSessionView }) {
   const title = isRun ? 'Löppass' : (session.title ?? (session.type === 'strength' ? 'Styrka' : 'Pass'));
 
   const setStatus = async (next: 'done' | 'partial' | 'skipped' | null) => {
-    // "Klart" on a run without a logged distance records the planned distance.
-    if (next === 'done' && isRun && view.run?.distance_km == null && plannedKm != null) {
-      await logPlannedRun(session.id, { distance_km: plannedKm });
-    }
-    await setPlannedStatus(session.id, next);
+    await completePlannedSession(session.id, next, plannedKm);
     if (next === 'done' || next === 'skipped') setCollapsed(true);
   };
 
@@ -203,9 +199,8 @@ function ExtraBlock({ view }: { view: ExtraLogView }) {
 
   const setStatus = async (next: 'done' | 'partial' | 'skipped' | null) => {
     if (planned) {
-      if (next === 'done' && isRun && run?.distance_km == null && plannedKm != null) await logPlannedRun(planned.id, { distance_km: plannedKm });
       // A moved session keeps moved_from; its status now says how it went.
-      await updateLoggedSession(logged.id, { status: next ?? 'moved' });
+      await completePlannedSession(planned.id, next, plannedKm);
     } else if (next === null) {
       await deleteLoggedSession(logged.id);
     } else {

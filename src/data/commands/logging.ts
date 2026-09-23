@@ -4,7 +4,7 @@ import { DEFAULT_RETIRE_KM } from '@/domain/shoeMileage';
 import { db } from '../local/db';
 import type { LoggedRunRow, LoggedSessionRow, LoggedSetRow, PlannedSessionRow, ProfileRow, ShoeRow } from '../rows';
 import { baseColumns, getOwnerId, nowStamp } from '../session';
-import { commit, softDeleted, type Change } from '../sync/commit';
+import { commit, serial, softDeleted, type Change } from '../sync/commit';
 
 /**
  * Logging commands. They only ever write logged_*, shoes and profiles: the
@@ -60,7 +60,7 @@ export const SessionPatch = z.object({
 });
 
 /** Marks a planned session as done / partial / skipped, creating its log if needed. */
-export async function setPlannedStatus(plannedSessionId: string, status: SessionStatus | null): Promise<void> {
+async function setPlannedStatusImpl(plannedSessionId: string, status: SessionStatus | null): Promise<void> {
   const p = await planned(plannedSessionId);
   const logged = await loggedFor(p);
   if (status === null) {
@@ -71,13 +71,13 @@ export async function setPlannedStatus(plannedSessionId: string, status: Session
 }
 
 /** Edits feel/RPE/comment of a planned session's log, creating the log on first input. */
-export async function updatePlannedSessionLog(plannedSessionId: string, patch: z.input<typeof SessionPatch>): Promise<void> {
+async function updatePlannedSessionLogImpl(plannedSessionId: string, patch: z.input<typeof SessionPatch>): Promise<void> {
   const parsed = SessionPatch.parse(patch);
   const logged = await loggedFor(await planned(plannedSessionId));
   await commit([{ table: 'logged_sessions', row: { ...logged, ...parsed } }], { layer: 'logged' });
 }
 
-export async function updateLoggedSession(id: string, patch: z.input<typeof SessionPatch>): Promise<void> {
+async function updateLoggedSessionImpl(id: string, patch: z.input<typeof SessionPatch>): Promise<void> {
   const parsed = SessionPatch.parse(patch);
   const row = await db.logged_sessions.get(id);
   if (!row) throw new Error('Loggen finns inte längre.');
@@ -115,13 +115,13 @@ async function upsertRun(logged: LoggedSessionRow, patch: RunPatch, extra: Chang
 }
 
 /** Logs (or edits) the run for a planned run session. Saves immediately; no save button. */
-export async function logPlannedRun(plannedSessionId: string, patch: RunPatch): Promise<void> {
+async function logPlannedRunImpl(plannedSessionId: string, patch: RunPatch): Promise<void> {
   const p = await planned(plannedSessionId);
   await upsertRun(await loggedFor(p), patch);
 }
 
 /** Logs a run that is not part of any program. */
-export async function logFreeRun(date: string, patch: RunPatch, title?: string): Promise<string> {
+async function logFreeRunImpl(date: string, patch: RunPatch, title?: string): Promise<string> {
   Date_.parse(date);
   const logged = await newLoggedSession({ date, type: 'run', status: 'done', title: title ?? null });
   await upsertRun(logged, patch);
@@ -129,13 +129,13 @@ export async function logFreeRun(date: string, patch: RunPatch, title?: string):
 }
 
 /** Edits the run of an existing log (free sessions and sessions moved to another day). */
-export async function updateLoggedRun(loggedSessionId: string, patch: RunPatch): Promise<void> {
+async function updateLoggedRunImpl(loggedSessionId: string, patch: RunPatch): Promise<void> {
   const logged = await db.logged_sessions.get(loggedSessionId);
   if (!logged) throw new Error('Loggen finns inte längre.');
   await upsertRun(logged, patch);
 }
 
-export async function deleteLoggedSession(loggedSessionId: string): Promise<void> {
+async function deleteLoggedSessionImpl(loggedSessionId: string): Promise<void> {
   const logged = await db.logged_sessions.get(loggedSessionId);
   if (!logged) return;
   await commit([{ table: 'logged_sessions', row: softDeleted(logged) }], { layer: 'logged' });
@@ -156,7 +156,7 @@ export const SetPatch = z.object({
 export type SetPatch = z.input<typeof SetPatch>;
 
 /** Writes one set of a planned exercise. Creates the logged session on first input. */
-export async function logPlannedSet(
+async function logPlannedSetImpl(
   plannedSessionId: string,
   plannedItemId: string,
   setNo: number,
@@ -191,7 +191,7 @@ export async function logPlannedSet(
 }
 
 /** Marks every set of an exercise as skipped (or un-skips). */
-export async function skipPlannedExercise(plannedSessionId: string, plannedItemId: string, skipped: boolean): Promise<void> {
+async function skipPlannedExerciseImpl(plannedSessionId: string, plannedItemId: string, skipped: boolean): Promise<void> {
   const p = await planned(plannedSessionId);
   const item = await db.planned_items.get(plannedItemId);
   if (!item) throw new Error('Övningen finns inte längre i planen.');
@@ -227,7 +227,7 @@ export async function skipPlannedExercise(plannedSessionId: string, plannedItemI
   await commit(changes, { layer: 'logged' });
 }
 
-export async function deleteLoggedSet(setId: string): Promise<void> {
+async function deleteLoggedSetImpl(setId: string): Promise<void> {
   const s = await db.logged_sets.get(setId);
   if (!s) return;
   await commit([{ table: 'logged_sets', row: softDeleted(s) }], { layer: 'logged' });
@@ -237,7 +237,7 @@ export async function deleteLoggedSet(setId: string): Promise<void> {
  * Moves a planned session to another day. The planned date is untouched: the
  * log gets status 'moved', the new date, and moved_from = the planned date.
  */
-export async function movePlannedSession(plannedSessionId: string, newDate: string): Promise<void> {
+async function movePlannedSessionImpl(plannedSessionId: string, newDate: string): Promise<void> {
   Date_.parse(newDate);
   const p = await planned(plannedSessionId);
   const logged = await loggedFor(p);
@@ -249,7 +249,7 @@ export async function movePlannedSession(plannedSessionId: string, newDate: stri
 }
 
 /** Adds a free (unplanned) copy of a planned session on another day. */
-export async function duplicatePlannedSession(plannedSessionId: string, date: string): Promise<string> {
+async function duplicatePlannedSessionImpl(plannedSessionId: string, date: string): Promise<string> {
   Date_.parse(date);
   const p = await planned(plannedSessionId);
   const logged = await newLoggedSession({ date, type: p.type, title: p.title, status: 'partial' });
@@ -270,7 +270,7 @@ export const NewShoe = z.object({
   model: z.string().nullable().optional(),
 });
 
-export async function createShoe(input: z.input<typeof NewShoe>): Promise<string> {
+async function createShoeImpl(input: z.input<typeof NewShoe>): Promise<string> {
   const parsed = NewShoe.parse(input);
   const owner = await getOwnerId();
   const row: ShoeRow = {
@@ -288,7 +288,7 @@ export async function createShoe(input: z.input<typeof NewShoe>): Promise<string
   return row.id;
 }
 
-export async function updateShoe(id: string, patch: Partial<Pick<ShoeRow, 'name' | 'surface_type' | 'start_km' | 'retire_km' | 'retired_on'>>): Promise<void> {
+async function updateShoeImpl(id: string, patch: Partial<Pick<ShoeRow, 'name' | 'surface_type' | 'start_km' | 'retire_km' | 'retired_on'>>): Promise<void> {
   const row = await db.shoes.get(id);
   if (!row) throw new Error('Skorna finns inte längre.');
   await commit([{ table: 'shoes', row: { ...row, ...patch } }], { layer: 'logged' });
@@ -320,7 +320,50 @@ export async function getOrCreateProfile(): Promise<ProfileRow> {
   };
 }
 
-export async function updateProfile(patch: Partial<Pick<ProfileRow, 'display_name' | 'theme' | 'race_date' | 'goal' | 'injury_notes'>>): Promise<void> {
+async function updateProfileImpl(patch: Partial<Pick<ProfileRow, 'display_name' | 'theme' | 'race_date' | 'goal' | 'injury_notes'>>): Promise<void> {
   const profile = await getOrCreateProfile();
   await commit([{ table: 'profiles', row: { ...profile, ...patch } }], { layer: 'logged' });
 }
+
+/**
+ * "Klart" / "Delvis" / "Hoppade" on a planned session. "Klart" on a run with no
+ * logged distance records the planned distance. `keepMoved` keeps a moved log
+ * on its new date (status becomes the result, moved_from stays).
+ */
+async function completePlannedSessionImpl(plannedSessionId: string, status: SessionStatus | null, plannedKm?: number): Promise<void> {
+  const p = await planned(plannedSessionId);
+  const logged = await loggedFor(p);
+  if (status === null) {
+    // Clearing a moved session's result keeps the move.
+    const row = logged.moved_from ? { ...logged, status: 'moved' as const } : softDeleted(logged);
+    await commit([{ table: 'logged_sessions', row }], { layer: 'logged' });
+    return;
+  }
+  const next = { ...logged, status };
+  if (status === 'done' && p.type === 'run' && plannedKm != null) {
+    const run = await getRunFor(logged.id);
+    if (run?.distance_km == null) {
+      await upsertRun(next, { distance_km: plannedKm });
+      return;
+    }
+  }
+  await commit([{ table: 'logged_sessions', row: next }], { layer: 'logged' });
+}
+
+// Every write command runs serialized (see serial() in sync/commit.ts).
+export const completePlannedSession = serial(completePlannedSessionImpl);
+export const setPlannedStatus = serial(setPlannedStatusImpl);
+export const updatePlannedSessionLog = serial(updatePlannedSessionLogImpl);
+export const updateLoggedSession = serial(updateLoggedSessionImpl);
+export const logPlannedRun = serial(logPlannedRunImpl);
+export const logFreeRun = serial(logFreeRunImpl);
+export const updateLoggedRun = serial(updateLoggedRunImpl);
+export const deleteLoggedSession = serial(deleteLoggedSessionImpl);
+export const logPlannedSet = serial(logPlannedSetImpl);
+export const skipPlannedExercise = serial(skipPlannedExerciseImpl);
+export const deleteLoggedSet = serial(deleteLoggedSetImpl);
+export const movePlannedSession = serial(movePlannedSessionImpl);
+export const duplicatePlannedSession = serial(duplicatePlannedSessionImpl);
+export const createShoe = serial(createShoeImpl);
+export const updateShoe = serial(updateShoeImpl);
+export const updateProfile = serial(updateProfileImpl);

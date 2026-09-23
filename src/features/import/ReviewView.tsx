@@ -1,5 +1,7 @@
 import { ChevronDown } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { useExercises } from '@/data/repository';
+import { buildExerciseIndex, matchExercise } from '@/domain/exerciseMatch';
 import { parseExerciseLine } from '@/domain/exerciseParser';
 import { CanonicalProgram, type CanonicalProgramInput, type ParsedItem } from '@/import/canonical';
 import { Block, Button, Chip, Field, inputClass } from '@/ui/components';
@@ -10,6 +12,15 @@ type Program = CanonicalProgram;
 
 function itemText(i: ParsedItem): string {
   return i.rawText;
+}
+
+function unknownExerciseNames(p: Program, index: ReturnType<typeof buildExerciseIndex>): string[] {
+  if (!index.size) return [];
+  const names = new Set<string>();
+  for (const w of p.weeks)
+    for (const s of w.sessions)
+      for (const i of s.items) if (i.kind === 'exercise' && i.exerciseName && !matchExercise(i.exerciseName, index)) names.add(i.exerciseName);
+  return [...names].sort((a, b) => a.localeCompare(b, 'sv'));
 }
 
 /**
@@ -32,6 +43,11 @@ export function ReviewView({
   const [error, setError] = useState<string | null>(null);
   const [openWeek, setOpenWeek] = useState<number | null>(null);
   const isGeneric = (input.sourceMeta as Record<string, unknown> | undefined)?.adapter === 'xlsx-generic';
+  const exercises = useExercises();
+  const exerciseIndex = useMemo(
+    () => buildExerciseIndex([...(exercises?.values() ?? [])].map((e) => ({ ...e, canonicalName: e.canonical_name }))),
+    [exercises],
+  );
 
   if (!program) {
     return (
@@ -48,6 +64,7 @@ export function ReviewView({
   }
 
   const sessions = program.weeks.flatMap((w) => w.sessions);
+  const newExercises = unknownExerciseNames(program, exerciseIndex);
   const totalKm = sessions.flatMap((s) => s.items).reduce((sum, i) => sum + (i.kind === 'distance' ? (i.distanceKm ?? 0) : 0), 0);
   const uncertain = program.weeks.flatMap((w, wi) =>
     w.sessions.flatMap((s, si) => s.items.map((item, ii) => ({ w, wi, si, ii, s, item })).filter((x) => x.item.parseConfidence < 1)),
@@ -127,6 +144,16 @@ export function ReviewView({
               </li>
             ))}
           </ul>
+        </Block>
+      )}
+
+      {newExercises.length > 0 && (
+        <Block className="p-4">
+          <h2 className="text-[15px] font-semibold">
+            {newExercises.length === 1 ? '1 ny övning' : `${newExercises.length} nya övningar`}
+          </h2>
+          <p className="mt-1 text-sm text-muted">Namnen finns inte i övningskatalogen och läggs till som dina egna övningar. Stavas de annorlunda än du menade, rätta dem i filen.</p>
+          <p className="mt-2 text-sm">{newExercises.join(', ')}</p>
         </Block>
       )}
 
