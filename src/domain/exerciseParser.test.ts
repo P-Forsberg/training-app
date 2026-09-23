@@ -155,6 +155,29 @@ describe('parseExerciseLine – separator and multiplication variants', () => {
     expect(parseExerciseLine('Deadlift – 1RM')?.repsMax).toBeUndefined();
   });
 
+  it('percent range load keeps the lower bound: Speed Squat – 6×2 @70–75%', () => {
+    expect(parseExerciseLine('Speed Squat – 6×2 @70–75%')).toMatchObject({
+      sets: 6,
+      reps: 2,
+      load: 70,
+      loadUnit: 'percent',
+      parseConfidence: 1,
+    });
+  });
+
+  it('names with slash and parentheses', () => {
+    expect(parseExerciseLine('Weighted Dips / CGBP – 3RM')).toMatchObject({
+      exerciseName: 'Weighted Dips / CGBP',
+      repScheme: 'rm',
+      reps: 3,
+    });
+    expect(parseExerciseLine('Trap Bar Deadlift (låga handtag) – 4×5')).toMatchObject({
+      exerciseName: 'Trap Bar Deadlift (låga handtag)',
+      sets: 4,
+      reps: 5,
+    });
+  });
+
   it('keeps raw text', () => {
     expect(parseExerciseLine('  Leg Curl – 4×12  ')?.rawText).toBe('Leg Curl – 4×12');
   });

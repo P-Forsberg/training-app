@@ -670,6 +670,7 @@ export type Database = {
           role: string
           server_updated_at: string
           shared_with: string
+          shared_with_email: string | null
           updated_at: string
         }
         Insert: {
@@ -681,6 +682,7 @@ export type Database = {
           role?: string
           server_updated_at?: string
           shared_with: string
+          shared_with_email?: string | null
           updated_at?: string
         }
         Update: {
@@ -692,6 +694,7 @@ export type Database = {
           role?: string
           server_updated_at?: string
           shared_with?: string
+          shared_with_email?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -932,6 +935,10 @@ export type Database = {
     Functions: {
       attach_row_triggers: { Args: { tbl: unknown }; Returns: undefined }
       can_read_program: { Args: { pid: string }; Returns: boolean }
+      share_program: {
+        Args: { p_email: string; p_program_id: string }
+        Returns: string
+      }
       shares_with_me: { Args: { owner_id: string }; Returns: boolean }
     }
     Enums: {

@@ -89,7 +89,7 @@ function parseUnsafe(input: string): ParsedItem | null {
  * The separator is a dash surrounded by whitespace (or at the end), or a colon.
  * Dashes inside words ("Pull-Ups", "Step-down") are part of the name.
  */
-function splitNameAndScheme(text: string): { name: string; scheme: string } {
+export function splitNameAndScheme(text: string): { name: string; scheme: string } {
   const sep = /(?:^|\s)[-–—](?=\s|$)|:(?=\s|$)/.exec(text);
   if (!sep) {
     // No separator: the whole line may be a bare scheme ("4×12") or a bare name.
@@ -160,7 +160,8 @@ function parseScheme(raw: string): SchemeResult | null {
 function parseLoad(s: string): { load?: number; loadUnit: LoadUnit } | null {
   let m: RegExpExecArray | null;
   if ((m = new RegExp(`^rpe\\s*${NUM}$`).exec(s))) return { load: toNumber(m[1]), loadUnit: 'rpe' };
-  if ((m = new RegExp(`^${NUM}\\s*%$`).exec(s))) return { load: toNumber(m[1]), loadUnit: 'percent' };
+  // A percent range ("70-75%") keeps the lower bound; the raw text keeps the range.
+  if ((m = new RegExp(`^${NUM}(?:\\s*%?\\s*-\\s*${NUM})?\\s*%$`).exec(s))) return { load: toNumber(m[1]), loadUnit: 'percent' };
   if ((m = new RegExp(`^${NUM}\\s*kg$`).exec(s))) return { load: toNumber(m[1]), loadUnit: 'kg' };
   if (/^(bw|kroppsvikt|bodyweight)$/.test(s)) return { loadUnit: 'bodyweight' };
   if (/^(band|gummiband)$/.test(s)) return { loadUnit: 'band' };
