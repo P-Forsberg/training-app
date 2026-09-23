@@ -1,0 +1,61 @@
+/*
+ * Theme tokens. Components use these variables (via Tailwind utilities such as
+ * bg-bg, bg-surface, text-fg, border-line, text-accent), never raw hex.
+ * The active theme is set as data-theme on <html>: night | day | logbook.
+ */
+
+:root,
+[data-theme='night'] {
+  --bg: #0d1211;
+  --surface: #151d1b;
+  --surface-2: #1c2624;
+  --line: #26322f;
+  --fg: #e8efec;
+  --muted: #93a39e;
+  --accent: #f0b429;
+  --accent-fg: #0d1211;
+  --accent-soft: color-mix(in oklab, var(--accent) 45%, transparent);
+  --danger: #ef6b5b;
+  --warn: #e5a83b;
+  color-scheme: dark;
+}
+
+[data-theme='day'] {
+  --bg: #eef1ec;
+  --surface: #ffffff;
+  --surface-2: #f5f7f3;
+  --line: #d7ddd4;
+  --fg: #18231d;
+  --muted: #5a6960;
+  --accent: #0d6d8c;
+  --accent-fg: #ffffff;
+  --accent-soft: color-mix(in oklab, var(--accent) 40%, transparent);
+  --danger: #b3261e;
+  --warn: #8a5a00;
+  color-scheme: light;
+}
+
+[data-theme='logbook'] {
+  --bg: #f7f7f5;
+  --surface: #ffffff;
+  --surface-2: #f0f0ed;
+  --line: #dcdcd8;
+  --fg: #1b1b1a;
+  --muted: #62625e;
+  --accent: #4b3bd1;
+  --accent-fg: #ffffff;
+  --accent-soft: color-mix(in oklab, var(--accent) 40%, transparent);
+  --danger: #b3261e;
+  --warn: #8a5a00;
+  color-scheme: light;
+}
+
+/* Phase colours: a fixed ordered palette, assigned to phases in import order. */
+:root {
+  --phase-1: #4f9d8a;
+  --phase-2: #6c8fd1;
+  --phase-3: #c98a3d;
+  --phase-4: #b0628f;
+  --phase-5: #8a8f3d;
+  --phase-6: #7a6fc4;
+}

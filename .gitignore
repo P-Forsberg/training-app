@@ -1,0 +1,13 @@
+node_modules
+dist
+dev-dist
+coverage
+playwright-report
+test-results
+*.local
+.env
+.env.*
+!.env.example
+fixtures/private/*
+!fixtures/private/.gitkeep
+.DS_Store
