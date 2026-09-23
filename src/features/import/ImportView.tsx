@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { usePendingImport } from './pendingImport';
 import { navigate } from '@/app/router';
 import { importProgram, saveImportProfile } from '@/data/commands/program';
 import * as generic from '@/import/adapters/xlsxGeneric';
@@ -18,7 +19,13 @@ type Stage =
   | { name: 'review'; program: CanonicalProgramInput; back: Stage; mapping?: generic.GenericMapping };
 
 export function ImportView() {
-  const [stage, setStage] = useState<Stage>({ name: 'pick' });
+  const pending = usePendingImport();
+  const [stage, setStage] = useState<Stage>(() =>
+    pending.program ? { name: 'review', program: pending.program, back: { name: 'pick' } } : { name: 'pick' },
+  );
+  useEffect(() => {
+    if (pending.program) pending.set(null);
+  }, [pending]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
