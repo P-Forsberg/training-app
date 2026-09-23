@@ -48,7 +48,12 @@ pnpm lint             # ESLint + tsc --noEmit
 pnpm db:migrate       # Supabase-migreringar lokalt
 pnpm db:types         # genererar TypeScript-typer från schemat
 pnpm db:reset         # nollställer lokal databas och kör seeds
+pnpm db:test          # pgTAP-tester för RLS, ägarkontroller och LWW (supabase/tests)
+pnpm db:push          # pushar migreringar till det länkade Supabase-projektet
+pnpm gen:exercises    # genererar övningskatalogen (klient + migrering) från scripts/exercise-catalog.source.json
 ```
+
+Lokal Supabase kräver Docker: `pnpm db:start` första gången.
 
 Kör `pnpm lint && pnpm test` innan du säger att något är klart.
 
@@ -73,7 +78,9 @@ src/
   ui/             delade komponenter och temavariabler
 supabase/
   migrations/     numrerade SQL-filer
+  tests/database/ pgTAP-tester (RLS, ägarkontroller, LWW)
   functions/ai/   Edge Function som håller AI-nyckeln
+scripts/          generatorer (övningskatalogen)
 docs/
   SPEC.md         produktspecen
   PLAN.md         godkänd plan: datamodell, scheman, RLS, arkitektur, byggordning

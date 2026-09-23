@@ -16,7 +16,9 @@
     "db:migrate": "supabase migration up",
     "db:types": "supabase gen types typescript --local --schema public > src/data/remote/database.types.ts",
     "db:reset": "supabase db reset",
-    "db:push": "supabase db push"
+    "db:push": "supabase db push",
+    "db:test": "supabase test db",
+    "gen:exercises": "node scripts/gen-exercise-catalog.mjs"
   },
   "dependencies": {
     "@fontsource-variable/archivo": "^5.3.0",
