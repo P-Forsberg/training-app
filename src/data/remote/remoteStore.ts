@@ -21,7 +21,8 @@ export interface RemoteStore {
 function toError(e: { message: string; code?: string; status?: number } | null, status?: number): RemoteError | null {
   if (!e) return null;
   const s = status ?? e.status ?? 0;
-  const transient = s === 0 || s >= 500 || s === 408 || s === 429 || /fetch|network|timeout/i.test(e.message);
+  // 404 means the table is missing (migrations not applied yet): wait, don't discard writes.
+  const transient = s === 0 || s === 404 || s >= 500 || s === 408 || s === 429 || /fetch|network|timeout/i.test(e.message);
   return { transient, message: e.message, code: e.code };
 }
 

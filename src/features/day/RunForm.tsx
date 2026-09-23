@@ -54,7 +54,8 @@ export function RunForm({
         <CommitInput
           id={`${idPrefix}-time`}
           inputMode="numeric"
-          placeholder="min eller t:mm:ss"
+          placeholder="min"
+          title="Minuter (45) eller t:mm:ss"
           className="w-28"
           value={formatDuration(run?.duration_sec)}
           errorText="Skriv tiden i minuter (45) eller som 1:05:30."

@@ -1,19 +1,21 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { CalendarDays, ChartColumn, ListChecks, Settings } from 'lucide-react';
-import { useEffect, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, type ReactNode } from 'react';
 import { seedExerciseCatalog } from '@/data/commands/program';
 import { db } from '@/data/local/db';
 import { getOwnerId } from '@/data/session';
 import { AiPanel } from '@/features/ai/AiPanel';
-import { CalendarView } from '@/features/calendar/CalendarView';
 import { DayView } from '@/features/day/DayView';
-import { ImportView } from '@/features/import/ImportView';
 import { InfoView } from '@/features/settings/InfoView';
 import { SettingsView } from '@/features/settings/SettingsView';
 import { ShoesView } from '@/features/shoes/ShoesView';
-import { StatsView } from '@/features/stats/StatsView';
 import { WeekView } from '@/features/week/WeekView';
+
+// Heavier views load on demand (charts, spreadsheet parsing). The service worker precaches them for offline use.
+const StatsView = lazy(() => import('@/features/stats/StatsView').then((m) => ({ default: m.StatsView })));
+const CalendarView = lazy(() => import('@/features/calendar/CalendarView').then((m) => ({ default: m.CalendarView })));
+const ImportView = lazy(() => import('@/features/import/ImportView').then((m) => ({ default: m.ImportView })));
 import { startSync } from '@/data/sync/engine';
 import { cn } from '@/ui/cn';
 import { useApplyTheme, type ThemeSetting } from '@/ui/theme';
@@ -44,7 +46,9 @@ function Shell() {
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-xl flex-col">
-      <main className="flex-1 px-4 pb-32">{renderRoute(route)}</main>
+      <main className="flex-1 px-4 pb-32">
+        <Suspense fallback={null}>{renderRoute(route)}</Suspense>
+      </main>
       <TabBar route={route} />
       <AiPanel route={route} />
     </div>

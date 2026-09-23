@@ -7,7 +7,7 @@ import { deleteProgram, setActiveProgram, shiftProgram, updateProgram } from '@/
 import { lastUndoableBatch, undoBatch } from '@/data/commands/undo';
 import { db } from '@/data/local/db';
 import { sendMagicLink, signInWithProvider, signOut } from '@/data/remote/auth';
-import { useOutboxCounts, usePrograms } from '@/data/repository';
+import { useActiveProgram, useOutboxCounts, usePrograms } from '@/data/repository';
 import { getOwnerId } from '@/data/session';
 import { discardFailed, retryFailed } from '@/data/sync/deadLetter';
 import { syncNow, useSyncStore, type SyncState } from '@/data/sync/engine';
@@ -112,7 +112,9 @@ function Programs() {
   const [shift, setShift] = useState('1');
   const [notice, setNotice] = useState<string | null>(null);
   const undoable = useLiveQuery(lastUndoableBatch, []);
-  const active = programs?.find((p) => p.is_active) ?? programs?.[0];
+  const active = useActiveProgram();
+  const me = useLiveQuery(getOwnerId, []);
+  const ownActive = active && active.owner === me ? active : undefined;
 
   return (
     <Block className="p-4">
@@ -123,14 +125,17 @@ function Programs() {
           <li key={p.id} className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-medium">{p.name}</span>
             {p.id === active?.id && <Chip accent>Aktivt</Chip>}
-            <span className="text-xs text-muted">från {formatDate(p.start_date, 'd MMM yyyy')}</span>
+            <span className="text-xs text-muted">
+              från {formatDate(p.start_date, 'd MMM yyyy')}
+              {p.owner !== me && ' · delat med dig'}
+            </span>
             <span className="ml-auto flex gap-1.5">
               {p.id !== active?.id && (
                 <Button size="sm" onClick={() => void setActiveProgram(p.id)}>
                   Använd
                 </Button>
               )}
-              {confirmDelete === p.id ? (
+              {p.owner !== me ? null : confirmDelete === p.id ? (
                 <Button
                   size="sm"
                   variant="danger"
@@ -151,15 +156,15 @@ function Programs() {
         ))}
       </ul>
 
-      {active && (
+      {ownActive && (
         <div className="mt-3 border-t border-line pt-2">
           <Field label="Loppdatum" htmlFor="race-date">
             <input
               id="race-date"
               type="date"
               className={cn(inputClass, 'w-44 font-normal')}
-              value={active.race_date ?? ''}
-              onChange={(e) => void updateProgram(active.id, { race_date: e.target.value || null })}
+              value={ownActive.race_date ?? ''}
+              onChange={(e) => void updateProgram(ownActive.id, { race_date: e.target.value || null })}
             />
           </Field>
           <Field label="Förskjut hela programmet (veckor)" htmlFor="shift">
@@ -169,7 +174,7 @@ function Programs() {
               onClick={async () => {
                 const n = Number(shift);
                 if (!Number.isInteger(n) || n === 0) return setNotice('Skriv ett helt antal veckor, till exempel 2 eller -1.');
-                await shiftProgram(active.id, n);
+                await shiftProgram(ownActive.id, n);
                 setNotice(`Programmet flyttades ${n} ${Math.abs(n) === 1 ? 'vecka' : 'veckor'}. Loggade pass står kvar på sina datum.`);
               }}
             >
@@ -192,7 +197,7 @@ function Programs() {
           Ångra senaste ändringen i planen
         </Button>
       )}
-      {active && <ShareProgram programId={active.id} />}
+      {ownActive && <ShareProgram programId={ownActive.id} />}
     </Block>
   );
 }

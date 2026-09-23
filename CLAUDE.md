@@ -53,34 +53,39 @@ pnpm db:push          # pushar migreringar till det länkade Supabase-projektet
 pnpm gen:exercises    # genererar övningskatalogen (klient + migrering) från scripts/exercise-catalog.source.json
 ```
 
-Lokal Supabase kräver Docker: `pnpm db:start` första gången.
+Lokal Supabase kräver Docker: `pnpm db:start` första gången. Edge Function driftsätts med `npx supabase functions deploy ai --use-api`; AI-nyckeln sätts av ägaren med `npx supabase secrets set ANTHROPIC_API_KEY=...`, aldrig i repot.
 
 Kör `pnpm lint && pnpm test` innan du säger att något är klart.
 
 ## Stack
 
-React 18 + TypeScript + Vite, PWA via vite-plugin-pwa. Tailwind + shadcn/ui. TanStack Query, Zustand, Zod. Dexie (IndexedDB) som lokal cache och offlinekö. Supabase (Postgres, Auth, Edge Functions). SheetJS för xlsx, Recharts för grafer, date-fns med måndag som veckostart.
+React 18 + TypeScript + Vite, PWA via vite-plugin-pwa. Tailwind 4 + egna shadcn-liknande komponenter i `ui/components.tsx`. Zustand, Zod. Dexie (IndexedDB) som lokal databas och utkö; UI läser med `useLiveQuery`. Supabase (Postgres, Auth, Edge Functions). SheetJS för xlsx, Recharts för grafer, date-fns med måndag som veckostart. AI: `claude-sonnet-5` via Edge Function.
 
 ## Mappstruktur
 
 ```
 src/
-  domain/         rena funktioner, inga beroenden utåt (parser, deriveWeekFlags, e1RM, skomil)
+  domain/         rena funktioner, inga beroenden utåt (parser, deriveWeekFlags, e1RM, skomil, status)
   data/
-    repository.ts interface som UI alltid går via
-    local/        Dexie-implementation
-    remote/       Supabase-implementation
-    sync/         utkö och konfliktlösning
+    repository.ts läsfrågor och hooks som UI alltid går via (läser bara Dexie)
+    rows.ts       radtyper från Postgres, avsmalnade enum-kolumner
+    commands/     skrivkommandon: program, logging, undo, backup
+    local/        Dexie-databasen
+    remote/       Supabase: klient, auth, upsert/pull, rpc, ai-anrop (enda stället som får importera supabase-js)
+    sync/         commit (enda skrivvägen), utkö, synkmotor, adoption vid inloggning
   import/
-    adapters/     xlsx-generic, xlsx-kullamannen, image, ai
+    adapters/     xlsxKullamannen, xlsxGeneric (bild och AI går via Edge Function och features/import)
     canonical.ts  Zod-schema för Program-JSON
-  features/       week/, day/, calendar/, stats/, shoes/, ai/, settings/
-  ui/             delade komponenter och temavariabler
+    canonicalToRows.ts  granskat program → rader
+  features/       week/, day/, calendar/, stats/, shoes/, ai/, settings/, import/
+  ui/             delade komponenter, format, teman (themes.css)
+  app/            App-skal och hash-router
 supabase/
   migrations/     numrerade SQL-filer
   tests/database/ pgTAP-tester (RLS, ägarkontroller, LWW)
-  functions/ai/   Edge Function som håller AI-nyckeln
-scripts/          generatorer (övningskatalogen)
+  functions/ai/   Edge Function som håller AI-nyckeln (prompt.ts = träningsreglerna för AI)
+scripts/          generatorer (övningskatalog, app-ikoner)
+tests/e2e/        Playwright
 docs/
   SPEC.md         produktspecen
   PLAN.md         godkänd plan: datamodell, scheman, RLS, arkitektur, byggordning
@@ -98,7 +103,7 @@ docs/
 
 **Inga hemligheter i klienten.** AI-nyckeln lever bara i Edge Function. Supabase anon key är publik som avsett, men RLS måste vara påslaget på varje tabell.
 
-**Allt skrivs lokalt först.** Skrivningar går genom command-lagret i `data/sync`, aldrig direkt mot Supabase från en komponent.
+**Allt skrivs lokalt först.** Skrivningar går genom kommandona i `data/commands` och `commit()` i `data/sync`, aldrig direkt mot Supabase från en komponent. Kommandon som läser och sedan skriver lindas i `serial()`.
 
 **Ingen rad utan `owner`.** Nya tabeller får `owner uuid` och explicita RLS-policies per operation. Aldrig `using (true)`.
 
@@ -121,6 +126,7 @@ Leg Curl – 4×12                    Trap Bar Deadlift – 3×3 @80%
 Pull-Ups – 4×AMRAP                 Bulgarian Split Squat – 3×10/ben
 Copenhagen Plank – 3×20 s/sida     Step-down – 3×8/ben
 Overhead Press – toppset 3 reps @RPE 8
+Speed Squat – 6×2 @70–75%          Weighted Dips / CGBP – 3RM
 Rörlighet – 10 min                 -  (betyder inget pass)
 ```
 
