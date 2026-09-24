@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { requestPasswordReset, signInWithPassword, updatePassword } from '@/data/remote/auth';
+import { configError, requestPasswordReset, signInWithPassword, updatePassword } from '@/data/remote/auth';
 import { useSyncStore } from '@/data/sync/engine';
 import { Block, Button, inputClass } from '@/ui/components';
 import { cn } from '@/ui/cn';
@@ -17,6 +17,11 @@ export function LoginView() {
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-4">
       <h1 className="text-2xl font-semibold tracking-tight">Träning</h1>
       <p className="mt-1 text-sm text-muted">Logga in för att se din plan.</p>
+      {configError && (
+        <p role="alert" className="mt-4 rounded-xl border border-danger p-3 text-sm text-danger">
+          {configError}
+        </p>
+      )}
       <Block className="mt-6 p-4">
         <form
           className="flex flex-col gap-3"

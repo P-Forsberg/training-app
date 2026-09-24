@@ -1,4 +1,6 @@
-import { supabase } from './client';
+import { configError, supabase } from './client';
+
+export { configError };
 
 export interface AuthUser {
   id: string;
@@ -14,7 +16,7 @@ export async function currentUser(): Promise<AuthUser | null> {
 }
 
 export async function signInWithPassword(email: string, password: string): Promise<{ error?: string }> {
-  if (!supabase) return { error: 'Inloggning är inte konfigurerad i den här versionen av appen.' };
+  if (!supabase) return { error: configError ?? 'Inloggning är inte konfigurerad i den här versionen av appen.' };
   if (!navigator.onLine) return { error: 'Första inloggningen kräver nät. Därefter fungerar appen offline.' };
   const { error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
   if (!error) return {};
