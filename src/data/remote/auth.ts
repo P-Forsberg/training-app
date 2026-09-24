@@ -18,9 +18,19 @@ export async function signInWithPassword(email: string, password: string): Promi
   if (!navigator.onLine) return { error: 'Första inloggningen kräver nät. Därefter fungerar appen offline.' };
   const { error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
   if (!error) return {};
-  if (error.status === 400) return { error: 'Fel e-post eller lösenord.' };
+  switch (error.code) {
+    case 'invalid_credentials':
+      return { error: 'Fel e-post eller lösenord. Kontrollera stavningen, eller välj "Glömt lösenordet?".' };
+    case 'email_not_confirmed':
+      return { error: 'Kontot är inte bekräftat än. Öppna bekräftelselänken i mejlet, eller be den som skapade kontot att bekräfta det i Supabase.' };
+    case 'user_banned':
+      return { error: 'Kontot är spärrat.' };
+    case 'over_request_rate_limit':
+    case 'over_email_send_rate_limit':
+      return { error: 'För många försök. Vänta en minut och försök igen.' };
+  }
   if (error.status === 429) return { error: 'För många försök. Vänta en minut och försök igen.' };
-  return { error: `Inloggningen misslyckades: ${error.message}` };
+  return { error: `Inloggningen misslyckades (${error.code ?? error.status ?? 'okänt fel'}): ${error.message}` };
 }
 
 /** Sends a reset link. The link opens the app, which then asks for a new password. */
