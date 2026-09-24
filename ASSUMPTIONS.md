@@ -4,10 +4,12 @@ Format: se CLAUDE.md, punkt 4. Nyaste längst ned inom varje avsnitt.
 
 ## Blockerare
 
+Inga just nu.
+
 ## 2026-09-23 · Supabase
-Blockerare (bara för molnet): `supabase db push` från den här sessionen avbryts med "permission denied to alter role cli_login_postgres". Det lokala arbetet påverkas inte.
-Så löses det: kör `pnpm db:push` i en egen terminal och ange databaslösenordet när du blir tillfrågad. Lösenordet ska inte klistras in i chatten.
-Status: öppen
+Blockerare (bara för molnet): `supabase db push` utan lösenord avbryts med "permission denied to alter role cli_login_postgres". Projektet hade dessutom fyra gamla migreringar från 2025-11 och en kvarglömd trigger `on_auth_user_created` med funktionerna `handle_new_user` och `update_updated_at_column`.
+Så löstes det: lösenordet sattes via `SUPABASE_DB_PASSWORD`, den gamla historiken markerades som `reverted`, och triggern och funktionerna togs bort för hand. Alla fyra migreringar ligger nu i molnet och anonym åtkomst nekas.
+Status: löst 2026-09-24
 
 ## Antaganden
 
