@@ -5,6 +5,7 @@ export interface AuthUser {
   email?: string;
 }
 
+/** Reads the stored session. Works offline: the session is kept on the device. */
 export async function currentUser(): Promise<AuthUser | null> {
   if (!supabase) return null;
   const { data } = await supabase.auth.getSession();
@@ -12,39 +13,48 @@ export async function currentUser(): Promise<AuthUser | null> {
   return u ? { id: u.id, email: u.email } : null;
 }
 
-export async function accessToken(): Promise<string | null> {
-  if (!supabase) return null;
-  const { data } = await supabase.auth.getSession();
-  return data.session?.access_token ?? null;
+export async function signInWithPassword(email: string, password: string): Promise<{ error?: string }> {
+  if (!supabase) return { error: 'Inloggning är inte konfigurerad i den här versionen av appen.' };
+  if (!navigator.onLine) return { error: 'Första inloggningen kräver nät. Därefter fungerar appen offline.' };
+  const { error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
+  if (!error) return {};
+  if (error.status === 400) return { error: 'Fel e-post eller lösenord.' };
+  if (error.status === 429) return { error: 'För många försök. Vänta en minut och försök igen.' };
+  return { error: `Inloggningen misslyckades: ${error.message}` };
 }
 
-/** Sends a magic link. The link returns to the current origin. */
-export async function sendMagicLink(email: string): Promise<{ error?: string }> {
+/** Sends a reset link. The link opens the app, which then asks for a new password. */
+export async function requestPasswordReset(email: string): Promise<{ error?: string }> {
   if (!supabase) return { error: 'Inloggning är inte konfigurerad i den här versionen av appen.' };
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: { emailRedirectTo: `${location.origin}${location.pathname}` },
+  const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+    redirectTo: `${location.origin}${location.pathname}`,
   });
   if (!error) return {};
   if (error.status === 429) return { error: 'För många försök. Vänta en minut och försök igen.' };
   return { error: `Länken kunde inte skickas: ${error.message}` };
 }
 
-export async function signInWithProvider(provider: 'google' | 'apple'): Promise<{ error?: string }> {
-  if (!supabase) return { error: 'Inloggning är inte konfigurerad i den här versionen av appen.' };
-  const { error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: `${location.origin}${location.pathname}` } });
-  return error ? { error: `Inloggningen misslyckades: ${error.message}` } : {};
+export async function updatePassword(password: string): Promise<{ error?: string }> {
+  if (!supabase) return { error: 'Inloggning är inte konfigurerad.' };
+  const { error } = await supabase.auth.updateUser({ password });
+  if (!error) return {};
+  if (/weak|short|characters/i.test(error.message)) return { error: 'Lösenordet är för svagt. Använd minst 10 tecken.' };
+  return { error: `Lösenordet kunde inte bytas: ${error.message}` };
 }
 
 export async function signOut(): Promise<void> {
   await supabase?.auth.signOut();
 }
 
-export function onAuthChange(cb: (user: AuthUser | null) => void): () => void {
+export type AuthEvent = 'signed-in' | 'signed-out' | 'password-recovery' | 'other';
+
+export function onAuthChange(cb: (user: AuthUser | null, event: AuthEvent) => void): () => void {
   if (!supabase) return () => {};
-  const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+  const { data } = supabase.auth.onAuthStateChange((event, session) => {
     const u = session?.user;
-    cb(u ? { id: u.id, email: u.email } : null);
+    const e: AuthEvent =
+      event === 'PASSWORD_RECOVERY' ? 'password-recovery' : event === 'SIGNED_IN' ? 'signed-in' : event === 'SIGNED_OUT' ? 'signed-out' : 'other';
+    cb(u ? { id: u.id, email: u.email } : null, e);
   });
   return () => data.subscription.unsubscribe();
 }

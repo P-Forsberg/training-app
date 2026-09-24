@@ -6,7 +6,7 @@ import { updateProfile } from '@/data/commands/logging';
 import { deleteProgram, setActiveProgram, shiftProgram, updateProgram } from '@/data/commands/program';
 import { lastUndoableBatch, undoBatch } from '@/data/commands/undo';
 import { db } from '@/data/local/db';
-import { sendMagicLink, signInWithProvider, signOut } from '@/data/remote/auth';
+import { signOut, updatePassword } from '@/data/remote/auth';
 import { useActiveProgram, useOutboxCounts, usePrograms } from '@/data/repository';
 import { getOwnerId } from '@/data/session';
 import { discardFailed, retryFailed } from '@/data/sync/deadLetter';
@@ -20,6 +20,7 @@ import { THEME_LABELS, type ThemeSetting } from '@/ui/theme';
 import { ShareProgram } from './ShareProgram';
 
 const SYNC_LABEL: Record<SyncState, string> = {
+  checking: 'Kontrollerar inloggning…',
   'local-only': 'Bara på den här enheten',
   'signed-out': 'Logga in för att synka',
   idle: 'Synkat',
@@ -56,7 +57,9 @@ export function SettingsView() {
 
 function Account() {
   const { user, state } = useSyncStore();
-  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [changing, setChanging] = useState(false);
+  const [unsynced, setUnsynced] = useState(0);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
   if (state === 'local-only') {
@@ -71,37 +74,63 @@ function Account() {
   return (
     <Block className="p-4">
       <h2 className="text-[15px] font-semibold">Konto</h2>
-      {user ? (
-        <div className="mt-2 flex items-center gap-3">
-          <span className="text-sm">{user.email}</span>
-          <Button size="sm" className="ml-auto" onClick={() => void signOut()}>
-            Logga ut
-          </Button>
-        </div>
-      ) : (
-        <form
-          className="mt-2 flex flex-col gap-2"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            if (!/^\S+@\S+\.\S+$/.test(email)) return setMessage({ ok: false, text: 'Skriv en giltig e-postadress.' });
-            const r = await sendMagicLink(email);
-            setMessage(r.error ? { ok: false, text: r.error } : { ok: true, text: `Länken är skickad till ${email}. Öppna den på den här enheten.` });
+      <div className="mt-2 flex items-center gap-2">
+        <span className="text-sm">{user?.email}</span>
+        <Button size="sm" variant="ghost" className="ml-auto" onClick={() => setChanging((c) => !c)}>
+          Byt lösenord
+        </Button>
+        <Button
+          size="sm"
+          variant={unsynced ? 'danger' : 'outline'}
+          onClick={async () => {
+            if (unsynced) return void signOut();
+            // Send pending changes first: signing out clears this device.
+            await syncNow();
+            const pending = await db.outbox.count();
+            if (pending) {
+              setUnsynced(pending);
+              setMessage({ ok: false, text: `${pending} ändringar är inte synkade och försvinner om du loggar ut nu. Anslut till nätet och försök igen, eller tryck en gång till för att logga ut ändå.` });
+              return;
+            }
+            await signOut();
           }}
         >
-          <p className="text-sm text-muted">Logga in för att synka mellan enheter. Det du redan loggat följer med till kontot.</p>
-          <label htmlFor="email" className="sr-only">
-            E-post
+          {unsynced ? 'Logga ut ändå' : 'Logga ut'}
+        </Button>
+      </div>
+      {changing && (
+        <form
+          className="mt-2 flex gap-2"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (password.length < 10) return setMessage({ ok: false, text: 'Använd minst 10 tecken.' });
+            const r = await updatePassword(password);
+            setMessage(r.error ? { ok: false, text: r.error } : { ok: true, text: 'Lösenordet är bytt.' });
+            if (!r.error) {
+              setPassword('');
+              setChanging(false);
+            }
+          }}
+        >
+          <label htmlFor="new-password" className="sr-only">
+            Nytt lösenord
           </label>
-          <input id="email" type="email" autoComplete="email" placeholder="E-post" className={cn(inputClass, 'text-left font-normal')} value={email} onChange={(e) => setEmail(e.target.value)} />
+          <input
+            id="new-password"
+            type="password"
+            autoComplete="new-password"
+            placeholder="Nytt lösenord"
+            className={cn(inputClass, 'flex-1 text-left font-normal')}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
           <Button type="submit" variant="primary">
-            Skicka inloggningslänk
+            Byt
           </Button>
-          <Button onClick={async () => setMessage((await signInWithProvider('google')).error ? { ok: false, text: 'Google-inloggning är inte aktiverad än. Använd e-postlänken.' } : null)}>
-            Logga in med Google
-          </Button>
-          {message && <p className={cn('text-sm', message.ok ? 'text-muted' : 'text-danger')}>{message.text}</p>}
         </form>
       )}
+      <p className="mt-2 text-xs text-muted">Utloggning tar bort dina data från den här enheten. De finns kvar på servern.</p>
+      {message && <p className={cn('mt-1 text-sm', message.ok ? 'text-muted' : 'text-danger')}>{message.text}</p>}
     </Block>
   );
 }

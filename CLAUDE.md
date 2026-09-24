@@ -105,7 +105,9 @@ docs/
 
 **Allt skrivs lokalt först.** Skrivningar går genom kommandona i `data/commands` och `commit()` i `data/sync`, aldrig direkt mot Supabase från en komponent. Kommandon som läser och sedan skriver lindas i `serial()`.
 
-**Ingen rad utan `owner`.** Nya tabeller får `owner uuid` och explicita RLS-policies per operation. Aldrig `using (true)`.
+**Ingen rad utan `owner`.** Nya tabeller får `owner uuid` och explicita RLS-policies per operation. Aldrig `using (true)`. Enda undantaget är `private.allowed_emails`, som inte nås via API:t.
+
+**Appen är stängd.** Med backend konfigurerad visas bara inloggningen tills någon loggat in. Nya konton kräver att e-postadressen står i `private.allowed_emails`, som fylls i via SQL-editorn och aldrig i en migrering. Personuppgifter hör inte hemma i repot.
 
 ## Datamodell i korthet
 

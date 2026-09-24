@@ -16,7 +16,8 @@ import { WeekView } from '@/features/week/WeekView';
 const StatsView = lazy(() => import('@/features/stats/StatsView').then((m) => ({ default: m.StatsView })));
 const CalendarView = lazy(() => import('@/features/calendar/CalendarView').then((m) => ({ default: m.CalendarView })));
 const ImportView = lazy(() => import('@/features/import/ImportView').then((m) => ({ default: m.ImportView })));
-import { startSync } from '@/data/sync/engine';
+import { startSync, useSyncStore } from '@/data/sync/engine';
+import { LoginView, SetPasswordView } from '@/features/auth/LoginView';
 import { cn } from '@/ui/cn';
 import { useApplyTheme, type ThemeSetting } from '@/ui/theme';
 import { href, useRoute, type Route } from './router';
@@ -43,6 +44,12 @@ function Shell() {
     void seedExerciseCatalog();
     return startSync();
   }, []);
+
+  // Closed app: with a backend configured, nothing is shown until someone has signed in.
+  const { state, user, recovery } = useSyncStore();
+  if (state === 'checking') return null;
+  if (recovery) return <SetPasswordView />;
+  if (state !== 'local-only' && !user) return <LoginView />;
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-xl flex-col">

@@ -7,20 +7,23 @@ import { adoptLocalRows, clearUserData } from './adoptLocalRows';
 import { onLocalWrite } from './events';
 import { pullAll, pushOutbox } from './syncCore';
 
-export type SyncState = 'local-only' | 'signed-out' | 'idle' | 'syncing' | 'offline' | 'error';
+export type SyncState = 'checking' | 'local-only' | 'signed-out' | 'idle' | 'syncing' | 'offline' | 'error';
 
 interface SyncStore {
   state: SyncState;
   user: AuthUser | null;
   lastSyncedAt: string | null;
   lastError: string | null;
+  /** The user opened a password reset link and must choose a new password. */
+  recovery: boolean;
 }
 
 export const useSyncStore = create<SyncStore>(() => ({
-  state: isRemoteConfigured() ? 'signed-out' : 'local-only',
+  state: isRemoteConfigured() ? 'checking' : 'local-only',
   user: null,
   lastSyncedAt: null,
   lastError: null,
+  recovery: false,
 }));
 
 const INTERVAL_MS = 60_000;
@@ -110,7 +113,8 @@ export function startSync(): () => void {
   };
 
   void currentUser().then(handleUser);
-  const offAuth = onAuthChange((u) => {
+  const offAuth = onAuthChange((u, event) => {
+    if (event === 'password-recovery') useSyncStore.setState({ recovery: true });
     if (u?.id !== useSyncStore.getState().user?.id) void handleUser(u);
   });
   const offWrite = onLocalWrite(() => schedule());

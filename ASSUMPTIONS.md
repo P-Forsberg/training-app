@@ -138,3 +138,27 @@ Antagande: att generera ett helt program kan ta längre tid än Edge Functions t
 Varför: långa program ger stora svar.
 Så ändras det: dela upp genereringen per block av veckor, eller byt till en plan med längre tidsgräns.
 Status: öppen
+
+## 2026-09-24 · Inloggning
+Antagande: appen är stängd. Med backend konfigurerad visas bara inloggningsskärmen tills någon loggat in, och databasen stoppar konton för adresser som inte står i `private.allowed_emails`.
+Varför: bara du och din sambo ska komma åt appen.
+Så ändras det: lägg till en adress med `insert into private.allowed_emails (email) values ('…');` i SQL-editorn. Spärren i klienten sitter i `app/App.tsx`.
+Status: öppen
+
+## 2026-09-24 · Inloggning
+Antagande: inloggning sker med e-post och lösenord i stället för länk. Länk används bara för att återställa lösenordet.
+Varför: en inloggningslänk öppnas i webbläsaren och inte i den installerade appen på iPhone, så sessionen hamnar på fel ställe.
+Så ändras det: `data/remote/auth.ts` och `features/auth/LoginView.tsx`.
+Status: öppen
+
+## 2026-09-24 · Inloggning
+Antagande: tabellen `private.allowed_emails` saknar `owner`, som ett undantag från regeln att varje tabell har en ägare. Den ligger i ett schema som inte nås via API:t och har RLS påslaget utan policies.
+Varför: listan gäller hela appen, inte en användare, och bara ägaren av projektet ändrar den via SQL.
+Så ändras det: migreringen `20260924000001_allowed_emails.sql`.
+Status: öppen
+
+## 2026-09-24 · Inloggning
+Antagande: utloggning rensar enhetens lokala data. Före utloggningen synkas väntande ändringar, och finns det ändå osynkade ändringar måste användaren bekräfta utloggningen en gång till.
+Varför: en delad eller förlorad telefon ska inte behålla någons träningsdata.
+Så ändras det: `handleUser()` i `data/sync/engine.ts`.
+Status: öppen

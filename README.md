@@ -15,7 +15,7 @@ cp .env.example .env.local   # fyll i VITE_SUPABASE_URL och VITE_SUPABASE_ANON_K
 pnpm dev
 ```
 
-Utan Supabase-uppgifter fungerar allt utom synk, inloggning, delning och AI.
+Utan Supabase-uppgifter körs appen enbart lokalt, utan inloggning. Med Supabase är appen stängd: bara konton vars e-post står i `private.allowed_emails` kan skapas och logga in.
 
 ## Supabase
 

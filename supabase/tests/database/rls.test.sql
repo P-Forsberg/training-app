@@ -1,7 +1,7 @@
 -- pgTAP tests for RLS, owner checks and last-write-wins. Run: pnpm db:test
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(18);
+select plan(20);
 
 -- Structural guarantees ------------------------------------------------------
 
@@ -31,6 +31,22 @@ select is(
   (select count(*)::int from pg_tables where schemaname = 'public'),
   'every table has an owner column'
 );
+
+-- Closed registration -----------------------------------------------------------
+
+select throws_ok(
+  $$ insert into auth.users (id, email) values ('00000000-0000-4000-8000-0000000000ff', 'stranger@example.test') $$,
+  '42501', null,
+  'an e-mail address that is not on the allowlist cannot get an account'
+);
+
+insert into private.allowed_emails (email) values ('user-a@example.test'), ('user-b@example.test');
+
+select lives_ok(
+  $$ insert into auth.users (id, email) values ('00000000-0000-4000-8000-0000000000fe', 'User-A@Example.test ') $$,
+  'allowlisted addresses are matched case-insensitively'
+);
+delete from auth.users where id = '00000000-0000-4000-8000-0000000000fe';
 
 -- Fixtures -------------------------------------------------------------------
 
