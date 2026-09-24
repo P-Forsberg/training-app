@@ -1,4 +1,5 @@
 import { addDaysIso } from '@/domain/dates';
+import { INTENT_LABEL, type RunIntent } from '@/domain/sessionIntent';
 import { CanonicalProgram, type CanonicalProgramInput } from '@/import/canonical';
 import { canonicalToRows } from '@/import/canonicalToRows';
 import { EXERCISE_CATALOG } from '../exerciseCatalog.generated';
@@ -111,6 +112,20 @@ export async function shiftProgram(programId: string, weeks: number): Promise<st
   ];
   const { batchId } = await commit(changes, { layer: 'planned', mutationBatch: {} });
   return batchId;
+}
+
+/**
+ * Sets the type of a planned run (Lugnt, Tempo, …) by writing its title.
+ * A plan change made by the user: one mutation batch, can be undone.
+ */
+export async function setRunIntent(plannedSessionId: string, intent: RunIntent | null): Promise<void> {
+  const session = await db.planned_sessions.get(plannedSessionId);
+  if (!session) throw new Error('Passet finns inte längre i planen.');
+  if (session.owner !== (await getOwnerId())) throw new Error('Programmet är delat med dig och kan bara ändras av den som äger det.');
+  await commit([{ table: 'planned_sessions', row: { ...session, title: intent ? INTENT_LABEL[intent] : null } }], {
+    layer: 'planned',
+    mutationBatch: {},
+  });
 }
 
 export async function saveImportProfile(name: string, adapter: string, mapping: unknown): Promise<void> {

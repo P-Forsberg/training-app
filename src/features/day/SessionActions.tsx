@@ -1,7 +1,9 @@
 import { MoreHorizontal } from 'lucide-react';
 import { useState } from 'react';
 import { duplicatePlannedSession, movePlannedSession, setPlannedStatus } from '@/data/commands/logging';
+import { setRunIntent } from '@/data/commands/program';
 import { isIsoDate } from '@/domain/dates';
+import { INTENT_LABEL, type RunIntent } from '@/domain/sessionIntent';
 import type { DisplayStatus } from '@/domain/sessionStatus';
 import { Button, inputClass, Sheet } from '@/ui/components';
 import { cn } from '@/ui/cn';
@@ -51,13 +53,16 @@ export function SessionMenu({
   plannedDate,
   open,
   onOpenChange,
+  runIntent,
 }: {
   plannedSessionId: string;
   plannedDate: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** For runs: the type the user has set (null = none set). Undefined for other sessions. */
+  runIntent?: RunIntent | null;
 }) {
-  const [mode, setMode] = useState<'menu' | 'move' | 'duplicate'>('menu');
+  const [mode, setMode] = useState<'menu' | 'move' | 'duplicate' | 'intent'>('menu');
   const [date, setDate] = useState(plannedDate);
   const [error, setError] = useState<string | null>(null);
   const close = () => {
@@ -81,9 +86,46 @@ export function SessionMenu({
       <Button variant="ghost" size="icon" aria-label="Fler val för passet" onClick={() => onOpenChange(true)}>
         <MoreHorizontal size={18} />
       </Button>
-      <Sheet open={open} onClose={close} title={mode === 'move' ? 'Flytta passet' : mode === 'duplicate' ? 'Duplicera passet' : 'Passet'}>
-        {mode === 'menu' ? (
+      <Sheet
+        open={open}
+        onClose={close}
+        title={mode === 'move' ? 'Flytta passet' : mode === 'duplicate' ? 'Duplicera passet' : mode === 'intent' ? 'Passtyp' : 'Passet'}
+      >
+        {mode === 'intent' ? (
           <div className="flex flex-col gap-2 px-4 pb-5">
+            <p className="text-sm text-muted">Visas i veckan och på dagen. Ändringen gäller planen och går att ångra under Mer.</p>
+            <div className="grid grid-cols-2 gap-2">
+              {(Object.keys(INTENT_LABEL) as RunIntent[]).map((k) => (
+                <Button
+                  key={k}
+                  pressed={runIntent === k}
+                  onClick={async () => {
+                    try {
+                      await setRunIntent(plannedSessionId, k);
+                      close();
+                    } catch (e) {
+                      setError(e instanceof Error ? e.message : 'Det gick inte att ändra passtypen.');
+                    }
+                  }}
+                >
+                  {INTENT_LABEL[k]}
+                </Button>
+              ))}
+            </div>
+            <Button
+              variant="ghost"
+              onClick={async () => {
+                await setRunIntent(plannedSessionId, null);
+                close();
+              }}
+            >
+              Läs från programmets text
+            </Button>
+            {error && <p className="text-sm text-danger">{error}</p>}
+          </div>
+        ) : mode === 'menu' ? (
+          <div className="flex flex-col gap-2 px-4 pb-5">
+            {runIntent !== undefined && <Button onClick={() => setMode('intent')}>Ändra passtyp</Button>}
             <Button onClick={() => setMode('move')}>Flytta till annan dag</Button>
             <Button onClick={() => setMode('duplicate')}>Duplicera till annan dag</Button>
             <Button

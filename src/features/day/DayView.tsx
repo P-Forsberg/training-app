@@ -15,6 +15,8 @@ import { addDaysIso, weekStartIso } from '@/domain/dates';
 import type { DisplayStatus } from '@/domain/sessionStatus';
 import { Block, BlockHeader, Button, Note, Rule, StatusDot } from '@/ui/components';
 import { STATUS_LABEL } from '@/ui/status';
+import { IntentChip } from '@/ui/IntentChip';
+import { INTENT_LABEL } from '@/domain/sessionIntent';
 import { formatDate, formatDayTitle, formatKm } from '@/ui/format';
 import { PageHeader } from '@/ui/PageHeader';
 import { useLongPress, useSwipe } from '@/ui/useSwipe';
@@ -101,7 +103,8 @@ function summary(view: PlannedSessionView): string {
   const statusText = STATUS_LABEL[status].toLowerCase();
   if (session.type === 'run') {
     const km = run?.distance_km ?? plannedKmOf(view);
-    return `Löppass${km != null ? ` ${formatKm(km)} km` : ''} · ${statusText}`;
+    const kind = view.intent ? ` · ${INTENT_LABEL[view.intent.intent]}` : '';
+    return `Löppass${km != null ? ` ${formatKm(km)} km` : ''}${kind} · ${statusText}`;
   }
   return `${session.title ?? 'Styrka'} · ${statusText}`;
 }
@@ -130,7 +133,7 @@ function PlannedBlock({ view }: { view: PlannedSessionView }) {
           <a className="text-sm text-accent" href={href({ name: 'day', date: logged.date })}>
             Gå till {formatDate(logged.date, 'EEEE')}
           </a>
-          <SessionMenu plannedSessionId={session.id} plannedDate={session.date} open={menuOpen} onOpenChange={setMenuOpen} />
+          <SessionMenu plannedSessionId={session.id} plannedDate={session.date} open={menuOpen} onOpenChange={setMenuOpen} runIntent={isRun ? (view.intent?.source === 'title' ? view.intent.intent : null) : undefined} />
         </div>
       </Block>
     );
@@ -150,14 +153,16 @@ function PlannedBlock({ view }: { view: PlannedSessionView }) {
           ) : (
             <>
               <h3 className="text-[15px] font-semibold">{title}</h3>
-              <span className="ml-auto text-sm text-muted">
+              {isRun && view.intent && <IntentChip info={view.intent} />}
+              <span className="ml-auto text-right text-sm text-muted">
                 {isRun ? (plannedKm != null ? `${formatKm(plannedKm)} km planerat` : '') : `${view.items.length} övningar`}
+                {isRun && view.intent?.detail && <span className="block text-xs text-fg">{view.intent.detail}</span>}
               </span>
             </>
           )}
           <StatusDot status={status} />
         </button>
-        <SessionMenu plannedSessionId={session.id} plannedDate={session.date} open={menuOpen} onOpenChange={setMenuOpen} />
+        <SessionMenu plannedSessionId={session.id} plannedDate={session.date} open={menuOpen} onOpenChange={setMenuOpen} runIntent={isRun ? (view.intent?.source === 'title' ? view.intent.intent : null) : undefined} />
       </div>
       {!collapsed && (
         <>

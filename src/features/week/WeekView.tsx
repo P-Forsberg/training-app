@@ -8,6 +8,7 @@ import type { DisplayStatus } from '@/domain/sessionStatus';
 import { cn } from '@/ui/cn';
 import { Block, Button, Chip, EmptyState, Note, ProgressBar, StatusDot } from '@/ui/components';
 import { formatDate, formatKm, WEEKDAYS_SHORT } from '@/ui/format';
+import { IntentChip } from '@/ui/IntentChip';
 import { PageHeader } from '@/ui/PageHeader';
 import { useSwipe } from '@/ui/useSwipe';
 
@@ -192,6 +193,15 @@ function DayRow({ day, weekday, isToday }: { day: DayView; weekday: string; isTo
         )}
         {day.flags.isRestAfterBackToBack && <small className="block text-[11px] font-normal text-muted">Vila efter back-to-back</small>}
       </span>
+      {day.sessions.some((s) => s.session.type === 'run' && s.intent) && (
+        <span className="flex flex-col items-start gap-1">
+          {day.sessions
+            .filter((s) => s.session.type === 'run' && s.intent)
+            .map((s) => (
+              <IntentChip key={s.session.id} info={s.intent!} />
+            ))}
+        </span>
+      )}
       <span className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
         {strength.map((s) => (
           <span key={s.session.id} className="rounded-md border border-line px-1.5 py-0.5 text-[11px] text-muted">

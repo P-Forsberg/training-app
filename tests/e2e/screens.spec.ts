@@ -8,7 +8,11 @@ test.skip(!process.env.SCREENSHOT_DIR, 'set SCREENSHOT_DIR to capture screenshot
 test('capture main screens', async ({ page }) => {
   const dir = process.env.SCREENSHOT_DIR!;
   const wb = XLSX.utils.book_new();
-  for (const [name, rows] of Object.entries(syntheticKullamannen(4))) XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), name);
+  const data = syntheticKullamannen(4);
+  // Week 1 describes its sessions in the focus text, like real plans do.
+  data.Veckoplan![1]![15] = 'Testfokus. Tempo ons: 3x6 min. Långpass lör.';
+  data.Veckoplan![1]![6] = 7; // a Wednesday run to carry the tempo label
+  for (const [name, rows] of Object.entries(data)) XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), name);
   await page.goto('/#/import');
   await page.getByTestId('import-file').setInputFiles({ name: 'Testplan.xlsx', mimeType: 'application/octet-stream', buffer: XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer });
   await page.screenshot({ path: `${dir}/review.png`, fullPage: true });

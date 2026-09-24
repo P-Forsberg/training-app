@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { addDaysIso, todayIso, weekDates, weekStartIso } from '@/domain/dates';
 import { deriveWeekFlags, type DayFlags, type WeekFlags } from '@/domain/deriveWeekFlags';
+import { deriveRunIntents, type IntentInfo } from '@/domain/sessionIntent';
 import { plannedSessionStatus, type DisplayStatus } from '@/domain/sessionStatus';
 import { shoeMileage, shoeStatus, type ShoeStatus } from '@/domain/shoeMileage';
 import type { PlannedSessionLike } from '@/domain/types';
@@ -34,6 +35,8 @@ export interface PlannedSessionView {
   run?: LoggedRunRow;
   sets: LoggedSetRow[];
   status: DisplayStatus;
+  /** Easy / tempo / … for runs, read from the program's text or a user-set title. */
+  intent?: IntentInfo;
 }
 
 /** A log shown on a day without a planned session there: free sessions and sessions moved in. */
@@ -142,6 +145,12 @@ export async function loadWeek(mondayInput: string, today = todayIso()): Promise
 
   const flags = deriveWeekFlags(monday, toLike(sessions, items), { previousWeekSessions: prevLike, nextWeekSessions: nextLike });
   const dayNotes = (week?.meta as { dayNotes?: Record<string, string> } | null)?.dayNotes ?? {};
+  const intents = deriveRunIntents({
+    monday,
+    weekTexts: [week?.focus_text],
+    dayNotes,
+    runs: sessions.filter((s) => s.type === 'run').map((s) => ({ id: s.id, date: s.date, title: s.title })),
+  });
 
   const days: DayView[] = dates.map((date, i) => {
     const daySessions = sessions
@@ -156,6 +165,7 @@ export async function loadWeek(mondayInput: string, today = todayIso()): Promise
           run: logged ? runs.find((r) => r.logged_session_id === logged.id) : undefined,
           sets: logged ? sets.filter((s) => s.logged_session_id === logged.id) : [],
           status: plannedSessionStatus(session, logged, today),
+          intent: intents.get(session.id),
         };
       });
 

@@ -162,3 +162,15 @@ Antagande: utloggning rensar enhetens lokala data. Före utloggningen synkas vä
 Varför: en delad eller förlorad telefon ska inte behålla någons träningsdata.
 Så ändras det: `handleUser()` i `data/sync/engine.ts`.
 Status: öppen
+
+## 2026-09-24 · Passtyp
+Antagande: ett löppass typ (Lugnt, Tempo, Intervall, Fartlek, Backe, Långpass) läses ur programmets egen text. Det kräver en veckodag och ett nyckelord i samma mening, i veckans fokus eller i dagens instruktion ("Tempo ons: 3x6 min"). Står ett kvalitetspass utan veckodag gissas ingen dag. En typ som användaren satt via "Ändra passtyp" går före texten.
+Varför: Excel-filen har bara kilometer per dag, och ingen träningsregel får ligga i koden.
+Så ändras det: nyckelorden i `domain/sessionIntent.ts`.
+Status: öppen
+
+## 2026-09-24 · Passtyp (tränings­beslut, ditt att äga)
+Antagande: när veckans text namnger kvalitetspass på vissa dagar visas veckans övriga löppass som "Lugnt". Etiketten har en förklaring vid hovring ("Tolkat").
+Varför: så brukar planer skrivas, och du ville kunna se de lugna passen.
+Så ändras det: sätt `OTHER_RUNS_EASY = false` i `domain/sessionIntent.ts`.
+Status: öppen
