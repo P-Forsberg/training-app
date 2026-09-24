@@ -11,3 +11,4 @@ test-results
 fixtures/private/*
 !fixtures/private/.gitkeep
 .DS_Store
+~$*
