@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { isIsoDate } from '@/domain/dates';
+import { applyRunEdit, type RunPartField, type RunParts } from '@/domain/runParts';
 import { DEFAULT_RETIRE_KM } from '@/domain/shoeMileage';
 import { db } from '../local/db';
 import type { LoggedRunRow, LoggedSessionRow, LoggedSetRow, PlannedSessionRow, ProfileRow, ShoeRow } from '../rows';
@@ -91,12 +92,34 @@ export const RunPatch = z.object({
   elevation_m: z.number().int().nullable().optional(),
   is_night: z.boolean().optional(),
   shoe_id: z.string().uuid().nullable().optional(),
+  warmup_km: z.number().min(0).max(1000).nullable().optional(),
+  main_km: z.number().min(0).max(1000).nullable().optional(),
+  cooldown_km: z.number().min(0).max(1000).nullable().optional(),
+  intervals_done: z.array(z.number().int().positive()).optional(),
+  distance_manual: z.boolean().optional(),
 });
 export type RunPatch = z.input<typeof RunPatch>;
 
+/** Defaults for rows created before the structured-run columns existed. */
+function withRunDefaults(r: LoggedRunRow): LoggedRunRow {
+  return {
+    ...r,
+    warmup_km: r.warmup_km ?? null,
+    main_km: r.main_km ?? null,
+    cooldown_km: r.cooldown_km ?? null,
+    intervals_done: r.intervals_done ?? [],
+    distance_manual: r.distance_manual ?? false,
+  };
+}
+
+async function currentRun(loggedId: string): Promise<LoggedRunRow | undefined> {
+  const r = (await db.logged_runs.where('logged_session_id').equals(loggedId).toArray()).find((x) => !x.deleted_at);
+  return r ? withRunDefaults(r) : undefined;
+}
+
 async function upsertRun(logged: LoggedSessionRow, patch: RunPatch, extra: Change[] = []): Promise<void> {
   const parsed = RunPatch.parse(patch);
-  const existing = (await db.logged_runs.where('logged_session_id').equals(logged.id).toArray()).find((r) => !r.deleted_at);
+  const existing = await currentRun(logged.id);
   const owner = await getOwnerId();
   const run: LoggedRunRow = existing
     ? { ...existing, ...parsed }
@@ -109,9 +132,42 @@ async function upsertRun(logged: LoggedSessionRow, patch: RunPatch, extra: Chang
         elevation_m: null,
         is_night: false,
         shoe_id: null,
+        warmup_km: null,
+        main_km: null,
+        cooldown_km: null,
+        intervals_done: [],
+        distance_manual: false,
         ...parsed,
       };
   await commit([{ table: 'logged_sessions', row: logged }, { table: 'logged_runs', row: run }, ...extra], { layer: 'logged' });
+}
+
+/**
+ * Edits the total or one part of a planned run. The total follows the parts
+ * until the user types it by hand (see domain/runParts).
+ */
+async function editPlannedRunFieldImpl(plannedSessionId: string, field: RunPartField | 'distance_km', value: number | null): Promise<void> {
+  if (value != null && !(value >= 0 && value <= 1000)) throw new Error('Distansen måste vara mellan 0 och 1000 km.');
+  const logged = await loggedFor(await planned(plannedSessionId));
+  const run = await currentRun(logged.id);
+  const current: RunParts = {
+    distance_km: run?.distance_km ?? null,
+    warmup_km: run?.warmup_km ?? null,
+    main_km: run?.main_km ?? null,
+    cooldown_km: run?.cooldown_km ?? null,
+    distance_manual: run?.distance_manual ?? false,
+  };
+  await upsertRun(logged, applyRunEdit(current, field, value));
+}
+
+/** Ticks or unticks interval number n (1-based) of a planned structured run. */
+async function toggleIntervalImpl(plannedSessionId: string, n: number): Promise<void> {
+  if (!Number.isInteger(n) || n < 1) throw new Error('Ogiltigt intervallnummer.');
+  const logged = await loggedFor(await planned(plannedSessionId));
+  const done = new Set((await currentRun(logged.id))?.intervals_done ?? []);
+  if (done.has(n)) done.delete(n);
+  else done.add(n);
+  await upsertRun(logged, { intervals_done: [...done].sort((a, b) => a - b) });
 }
 
 /** Logs (or edits) the run for a planned run session. Saves immediately; no save button. */
@@ -352,6 +408,8 @@ async function completePlannedSessionImpl(plannedSessionId: string, status: Sess
 
 // Every write command runs serialized (see serial() in sync/commit.ts).
 export const completePlannedSession = serial(completePlannedSessionImpl);
+export const editPlannedRunField = serial(editPlannedRunFieldImpl);
+export const toggleInterval = serial(toggleIntervalImpl);
 export const setPlannedStatus = serial(setPlannedStatusImpl);
 export const updatePlannedSessionLog = serial(updatePlannedSessionLogImpl);
 export const updateLoggedSession = serial(updateLoggedSessionImpl);

@@ -64,6 +64,21 @@ export class LocalDb extends Dexie {
       sync_cursors: 'table',
       meta: 'key',
     });
+    // Mirrors migration 20260925000001_run_parts: structured-run fields on logged_runs.
+    this.version(2)
+      .stores({})
+      .upgrade((tx) =>
+        tx
+          .table('logged_runs')
+          .toCollection()
+          .modify((r: Record<string, unknown>) => {
+            r.warmup_km ??= null;
+            r.main_km ??= null;
+            r.cooldown_km ??= null;
+            r.intervals_done ??= [];
+            r.distance_manual ??= false;
+          }),
+      );
   }
 
   rows<T extends SyncedTable>(table: T): Table<Row<T>, string> {

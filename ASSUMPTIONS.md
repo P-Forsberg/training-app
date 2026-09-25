@@ -174,3 +174,27 @@ Antagande: när veckans text namnger kvalitetspass på vissa dagar visas veckans
 Varför: så brukar planer skrivas, och du ville kunna se de lugna passen.
 Så ändras det: sätt `OTHER_RUNS_EASY = false` i `domain/sessionIntent.ts`.
 Status: öppen
+
+## 2026-09-25 · Import
+Antagande: veckodagen för en textkolumn läses ur rubriken ("Onsdag – kvalitetspass" → onsdag). Har kolumnen text en dag som saknar planerad distans skapas ett löppass utan distans, och importen visar en varning.
+Varför: ingen veckodag får vara hårdkodad, och texten får inte försvinna.
+Så ändras det: `import/planHeader.ts` och delen om textkolumner i `xlsxKullamannen.ts`.
+Status: öppen
+
+## 2026-09-25 · Strukturerat pass
+Antagande: huvuddelen räknas som klar när alla intervaller är avbockade. Utan antal intervaller (t.ex. "20 min stadigt") räknas den som klar när distansen är ifylld. Uppvärmning och nedvarvning räknas som klara när deras distans är ifylld.
+Varför: specen säger "fylld när delen är klar" utan närmare definition.
+Så ändras det: `StructuredRunBlock.tsx`, variabeln `mainStatus`.
+Status: öppen
+
+## 2026-09-25 · Strukturerat pass
+Antagande: ett strukturerat pass som flyttats till en annan dag visas utan delblocket på den nya dagen. Loggningen görs då i det vanliga löpblocket.
+Varför: delblocket bygger på det planerade passet på den planerade dagen. Flyttade pass är ovanliga.
+Så ändras det: visa `StructuredRunBlock` även i `ExtraBlock` i `DayView.tsx`.
+Status: öppen
+
+## 2026-09-25 · Passtyp
+Antagande: "Progressivt" är en egen passtyp och räknas som kvalitetspass.
+Varför: exemplet "Progressivt 16 km … sista 5 km i maratonfart" är varken lugnt eller tempo.
+Så ändras det: `KEYWORDS` och `QUALITY` i `domain/sessionIntent.ts`.
+Status: öppen

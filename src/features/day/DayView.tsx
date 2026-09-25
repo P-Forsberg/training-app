@@ -1,9 +1,10 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { href, navigate } from '@/app/router';
 import {
   completePlannedSession,
   deleteLoggedSession,
+  editPlannedRunField,
   logFreeRun,
   logPlannedRun,
   updateLoggedRun,
@@ -24,6 +25,8 @@ import { CommentField, RunForm } from './RunForm';
 import { SessionMenu, StatusButtons } from './SessionActions';
 import { itemLabel } from './labels';
 import { StrengthForm } from './StrengthForm';
+import { StructuredRunBlock } from './StructuredRunBlock';
+import { parseStructuredRun } from '@/domain/structuredRun';
 
 export function DayView({ date }: { date: string }) {
   const week = useWeek(weekStartIso(date));
@@ -71,9 +74,19 @@ export function DayView({ date }: { date: string }) {
 
         {day.sessions
           .filter((s) => s.session.type !== 'rest')
-          .map((s) => (
-            <PlannedBlock key={s.session.id} view={s} />
-          ))}
+          .map((s) => {
+            const structured = s.session.type === 'run' && s.status !== 'moved' ? parseStructuredRun(s.session.notes) : null;
+            return (
+              <Fragment key={s.session.id}>
+                {structured ? (
+                  <StructuredRunBlock plannedSessionId={s.session.id} structured={structured} run={s.run} />
+                ) : (
+                  s.session.type === 'run' && s.session.notes && <Note title="Dagens pass">{s.session.notes}</Note>
+                )}
+                <PlannedBlock view={s} />
+              </Fragment>
+            );
+          })}
 
         {day.extras.map((e) => (
           <ExtraBlock key={e.logged.id} view={e} />
@@ -174,6 +187,7 @@ function PlannedBlock({ view }: { view: PlannedSessionView }) {
               run={view.run}
               logged={logged}
               saveRun={(patch) => logPlannedRun(session.id, patch)}
+              saveDistance={(km) => editPlannedRunField(session.id, 'distance_km', km)}
               saveSession={(patch) => updatePlannedSessionLog(session.id, patch)}
             />
           ) : (

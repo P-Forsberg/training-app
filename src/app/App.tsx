@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useDbQuery } from '@/data/live';
 import { CalendarDays, ChartColumn, ListChecks, Settings } from 'lucide-react';
 import { lazy, Suspense, useEffect, type ReactNode } from 'react';
 import { seedExerciseCatalog } from '@/data/commands/program';
@@ -34,7 +34,7 @@ export function App() {
 
 function Shell() {
   const route = useRoute();
-  const theme = useLiveQuery(async () => {
+  const theme = useDbQuery(async () => {
     const owner = await getOwnerId();
     return (await db.profiles.get(owner))?.theme as ThemeSetting | undefined;
   }, []);

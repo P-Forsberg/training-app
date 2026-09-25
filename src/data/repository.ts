@@ -1,4 +1,4 @@
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useDbQuery } from './live';
 import { addDaysIso, todayIso, weekDates, weekStartIso } from '@/domain/dates';
 import { deriveWeekFlags, type DayFlags, type WeekFlags } from '@/domain/deriveWeekFlags';
 import { deriveRunIntents, type IntentInfo } from '@/domain/sessionIntent';
@@ -145,10 +145,15 @@ export async function loadWeek(mondayInput: string, today = todayIso()): Promise
 
   const flags = deriveWeekFlags(monday, toLike(sessions, items), { previousWeekSessions: prevLike, nextWeekSessions: nextLike });
   const dayNotes = (week?.meta as { dayNotes?: Record<string, string> } | null)?.dayNotes ?? {};
+  // Day instructions plus each run's own note (e.g. the week's quality session).
+  const textByDate: Record<string, string> = { ...dayNotes };
+  for (const s of sessions) {
+    if (s.type === 'run' && s.notes) textByDate[s.date] = textByDate[s.date] ? `${textByDate[s.date]}\n${s.notes}` : s.notes;
+  }
   const intents = deriveRunIntents({
     monday,
     weekTexts: [week?.focus_text],
-    dayNotes,
+    dayNotes: textByDate,
     runs: sessions.filter((s) => s.type === 'run').map((s) => ({ id: s.id, date: s.date, title: s.title })),
   });
 
@@ -202,33 +207,33 @@ export async function loadWeek(mondayInput: string, today = todayIso()): Promise
 }
 
 export function useWeek(monday: string): WeekView | undefined {
-  return useLiveQuery(() => loadWeek(monday), [monday]);
+  return useDbQuery(() => loadWeek(monday), [monday]);
 }
 
 export function useActiveProgram(): ProgramRow | undefined | null {
-  return useLiveQuery(async () => (await loadActiveProgram()) ?? null, []);
+  return useDbQuery(async () => (await loadActiveProgram()) ?? null, []);
 }
 
 export function usePrograms(): ProgramRow[] | undefined {
-  return useLiveQuery(async () => live(await db.programs.toArray()).sort((a, b) => b.created_at.localeCompare(a.created_at)), []);
+  return useDbQuery(async () => live(await db.programs.toArray()).sort((a, b) => b.created_at.localeCompare(a.created_at)), []);
 }
 
 export function useProgramWeeks(programId: string | undefined): ProgramWeekRow[] | undefined {
-  return useLiveQuery(
+  return useDbQuery(
     async () => (programId ? live(await db.program_weeks.where('program_id').equals(programId).toArray()).sort((a, b) => a.week_no - b.week_no) : []),
     [programId],
   );
 }
 
 export function useProgramNotes(programId: string | undefined): ProgramNoteRow[] | undefined {
-  return useLiveQuery(
+  return useDbQuery(
     async () => (programId ? live(await db.program_notes.where('program_id').equals(programId).toArray()).sort((a, b) => a.sort - b.sort) : []),
     [programId],
   );
 }
 
 export function useExercises(): Map<string, ExerciseRow> | undefined {
-  return useLiveQuery(async () => new Map(live(await db.exercises.toArray()).map((e) => [e.id, e])), []);
+  return useDbQuery(async () => new Map(live(await db.exercises.toArray()).map((e) => [e.id, e])), []);
 }
 
 // ---------------------------------------------------------------------------
@@ -262,7 +267,7 @@ export async function loadPreviousSets(exerciseIds: string[], beforeDate: string
 
 export function usePreviousSets(exerciseIds: string[], beforeDate: string) {
   const key = exerciseIds.join(',');
-  return useLiveQuery(() => loadPreviousSets(exerciseIds, beforeDate), [key, beforeDate]);
+  return useDbQuery(() => loadPreviousSets(exerciseIds, beforeDate), [key, beforeDate]);
 }
 
 // ---------------------------------------------------------------------------
@@ -292,7 +297,7 @@ export async function loadShoes(): Promise<ShoeView[]> {
 }
 
 export function useShoes(): ShoeView[] | undefined {
-  return useLiveQuery(loadShoes, []);
+  return useDbQuery(loadShoes, []);
 }
 
 // ---------------------------------------------------------------------------
@@ -321,7 +326,7 @@ export async function loadOverview(): Promise<ProgramOverview> {
 }
 
 export function useOverview(): ProgramOverview | undefined {
-  return useLiveQuery(loadOverview, []);
+  return useDbQuery(loadOverview, []);
 }
 
 // ---------------------------------------------------------------------------
@@ -329,5 +334,5 @@ export function useOverview(): ProgramOverview | undefined {
 // ---------------------------------------------------------------------------
 
 export function useOutboxCounts(): { pending: number; failed: number } | undefined {
-  return useLiveQuery(async () => ({ pending: await db.outbox.count(), failed: await db.dead_letter.count() }), []);
+  return useDbQuery(async () => ({ pending: await db.outbox.count(), failed: await db.dead_letter.count() }), []);
 }

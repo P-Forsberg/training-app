@@ -1,4 +1,4 @@
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useDbQuery } from '@/data/live';
 import { useState } from 'react';
 import { db } from '@/data/local/db';
 import { GenericMapping, ADAPTER_ID } from '@/import/adapters/xlsxGeneric';
@@ -55,7 +55,7 @@ export function MappingForm({
 }) {
   const [m, setM] = useState<GenericMapping>(initial);
   const [error, setError] = useState<string | null>(null);
-  const profiles = useLiveQuery(async () => (await db.import_profiles.where('adapter').equals(ADAPTER_ID).toArray()).filter((p) => !p.deleted_at), []);
+  const profiles = useDbQuery(async () => (await db.import_profiles.where('adapter').equals(ADAPTER_ID).toArray()).filter((p) => !p.deleted_at), []);
   const rows = data[m.sheet] ?? [];
   const header = rows[Math.max(0, m.firstDataRow - 2)] ?? [];
   const letters = columnLetters(rows);

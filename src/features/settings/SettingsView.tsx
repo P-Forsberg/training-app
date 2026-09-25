@@ -1,4 +1,4 @@
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useDbQuery } from '@/data/live';
 import { useState } from 'react';
 import { href } from '@/app/router';
 import { exportBackup, importBackup } from '@/data/commands/backup';
@@ -140,9 +140,9 @@ function Programs() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [shift, setShift] = useState('1');
   const [notice, setNotice] = useState<string | null>(null);
-  const undoable = useLiveQuery(lastUndoableBatch, []);
+  const undoable = useDbQuery(lastUndoableBatch, []);
   const active = useActiveProgram();
-  const me = useLiveQuery(getOwnerId, []);
+  const me = useDbQuery(getOwnerId, []);
   const ownActive = active && active.owner === me ? active : undefined;
 
   return (
@@ -232,7 +232,7 @@ function Programs() {
 }
 
 function Theme() {
-  const theme = useLiveQuery(async () => (await db.profiles.get(await getOwnerId()))?.theme ?? 'night', []);
+  const theme = useDbQuery(async () => (await db.profiles.get(await getOwnerId()))?.theme ?? 'night', []);
   return (
     <Block className="p-4">
       <h2 className="mb-2 text-[15px] font-semibold">Tema</h2>

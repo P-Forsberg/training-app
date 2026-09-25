@@ -29,7 +29,12 @@ export default tseslint.config(
       // UI must go through the repository/command layer, never Supabase directly.
       'no-restricted-imports': [
         'error',
-        { patterns: [{ group: ['@supabase/supabase-js'], message: 'Only src/data/remote may import Supabase.' }] },
+        {
+          patterns: [
+            { group: ['@supabase/supabase-js'], message: 'Only src/data/remote may import Supabase.' },
+            { group: ['dexie-react-hooks'], message: 'Use useDbQuery from @/data/live (useLiveQuery loses change tracking in the browser).' },
+          ],
+        },
       ],
     },
   },

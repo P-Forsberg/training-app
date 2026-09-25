@@ -7,7 +7,7 @@ import type { IsoDate } from './types';
  * notes) or from a title the user set. Unknown stays unknown.
  */
 
-export type RunIntent = 'easy' | 'tempo' | 'interval' | 'fartlek' | 'hills' | 'long';
+export type RunIntent = 'easy' | 'tempo' | 'interval' | 'fartlek' | 'hills' | 'progressive' | 'long';
 
 export interface IntentInfo {
   intent: RunIntent;
@@ -23,10 +23,11 @@ export const INTENT_LABEL: Record<RunIntent, string> = {
   interval: 'Intervall',
   fartlek: 'Fartlek',
   hills: 'Backe',
+  progressive: 'Progressivt',
   long: 'Långpass',
 };
 
-export const QUALITY: ReadonlySet<RunIntent> = new Set(['tempo', 'interval', 'fartlek', 'hills']);
+export const QUALITY: ReadonlySet<RunIntent> = new Set(['tempo', 'interval', 'fartlek', 'hills', 'progressive']);
 
 /**
  * When the week's text names quality sessions on specific days, the remaining
@@ -44,6 +45,7 @@ const KEYWORDS: [RunIntent, RegExp][] = [
   ['interval', word('intervall|intervaller|intervallpass')],
   ['fartlek', word('fartlek|fartpass|fartpasset')],
   ['hills', word('backe|backar|backintervall|backintervaller|backlöpning')],
+  ['progressive', word('progressivt|progressiv|progressivpass')],
   ['long', word('långpass|långpasset')],
   ['easy', word('lugnt|lugn|lugna|återhämtning|återhämtningspass')],
 ];
@@ -127,7 +129,7 @@ export function deriveRunIntents(input: {
         }
         if (date) {
           put(date, { intent: kw.intent, ...(detail ? { detail } : {}), source: 'text' });
-          if (QUALITY.has(kw.intent) && !defaultDate) namedQuality = true;
+          if (QUALITY.has(kw.intent)) namedQuality = true;
         } else if (kw.intent === 'easy' && !kws.some((k) => k.intent !== 'easy')) {
           weekEasy = true;
         }

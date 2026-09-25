@@ -39,6 +39,42 @@ export function kmPerWeek(o: ProgramOverview): WeekKm[] {
   }));
 }
 
+export interface WeekParts {
+  label: string;
+  monday: string;
+  /** Kilometres in the main set of structured runs. */
+  quality: number;
+  /** Warm-up plus cool-down of structured runs. */
+  easyParts: number;
+}
+
+/** Structured-run kilometres per week, split into main set and warm-up/cool-down. */
+export function partsPerWeek(o: ProgramOverview): WeekParts[] {
+  const sessions = new Map(o.logged.map((l) => [l.id, l]));
+  const by = new Map<string, { quality: number; easyParts: number }>();
+  for (const r of o.runs) {
+    const l = sessions.get(r.logged_session_id);
+    if (!l || l.status === 'skipped') continue;
+    const main = r.main_km ?? 0;
+    const easy = (r.warmup_km ?? 0) + (r.cooldown_km ?? 0);
+    if (!main && !easy) continue;
+    const m = weekStartIso(l.date);
+    const v = by.get(m) ?? { quality: 0, easyParts: 0 };
+    v.quality += main;
+    v.easyParts += easy;
+    by.set(m, v);
+  }
+  const weekNo = new Map(o.weeks.map((w) => [w.start_date, w.week_no]));
+  return [...by.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([monday, v]) => ({
+      monday,
+      label: weekNo.has(monday) ? `v${weekNo.get(monday)}` : monday.slice(5),
+      quality: r1(v.quality),
+      easyParts: r1(v.easyParts),
+    }));
+}
+
 export const SURFACE_LABELS: Record<string, string> = {
   road: 'Väg',
   gravel: 'Grus',

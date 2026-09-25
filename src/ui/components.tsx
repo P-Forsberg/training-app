@@ -292,9 +292,10 @@ export function Sheet({
         aria-labelledby={id}
         tabIndex={-1}
         className={cn(
-          'fixed inset-x-0 bottom-0 z-50 mx-auto flex max-w-xl flex-col rounded-t-2xl border-t border-line bg-surface pb-[env(safe-area-inset-bottom,0px)] outline-none transition-transform duration-300',
+          'fixed inset-x-0 bottom-0 z-50 mx-auto flex max-w-xl flex-col rounded-t-2xl border-t border-line bg-surface pb-[env(safe-area-inset-bottom,0px)] outline-none transition-[transform,visibility] duration-300',
           tall ? 'h-[85vh]' : 'max-h-[70vh]',
-          open ? 'translate-y-0' : 'translate-y-[102%]',
+          // Hidden after the slide-out, so a closed sheet can never be seen or reached.
+          open ? 'visible translate-y-0' : 'invisible translate-y-[102%]',
         )}
       >
         <header className="flex items-center gap-3 px-4 pb-2 pt-3">

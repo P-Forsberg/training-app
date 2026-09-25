@@ -6,7 +6,7 @@ import { shoeProgress } from '@/domain/shoeMileage';
 import { Block, Button, EmptyState, ProgressBar, Select } from '@/ui/components';
 import { formatDate, formatKm } from '@/ui/format';
 import { PageHeader } from '@/ui/PageHeader';
-import { e1rmByExercise, kmPerSurface, kmPerWeek, sessionsPerMonth } from './aggregate';
+import { e1rmByExercise, kmPerSurface, kmPerWeek, partsPerWeek, sessionsPerMonth } from './aggregate';
 
 // Chart styling uses theme variables only. Two-series charts pair the accent with
 // a neutral (planned), so identity never depends on telling two hues apart.
@@ -40,6 +40,7 @@ export function StatsView() {
   const shoes = useShoes();
   const weeks = useMemo(() => (o ? kmPerWeek(o) : []), [o]);
   const surfaces = useMemo(() => (o ? kmPerSurface(o) : []), [o]);
+  const parts = useMemo(() => (o ? partsPerWeek(o) : []), [o]);
   const months = useMemo(() => (o ? sessionsPerMonth(o) : []), [o]);
   const strength = useMemo(() => (o ? e1rmByExercise(o) : new Map()), [o]);
   const [exerciseId, setExerciseId] = useState<string | null>(null);
@@ -91,6 +92,46 @@ export function StatsView() {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
+            </div>
+          </ChartBlock>
+        )}
+
+        {parts.length > 0 && (
+          <ChartBlock
+            title="Kvalitetspass per vecka"
+            table={
+              <table className="w-full tabular-nums">
+                <thead className="text-left text-muted">
+                  <tr>
+                    <th className="font-normal">Vecka</th>
+                    <th className="text-right font-normal">Huvuddel</th>
+                    <th className="text-right font-normal">Uppv. + nedjogg</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {parts.map((w) => (
+                    <tr key={w.monday}>
+                      <td>{w.label}</td>
+                      <td className="text-right">{formatKm(w.quality)}</td>
+                      <td className="text-right">{formatKm(w.easyParts)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            }
+          >
+            <div style={{ height: 180 }}>
+              <ResponsiveContainer>
+                <BarChart data={parts} barGap={2} margin={{ left: -20, right: 4, top: 4 }}>
+                  <CartesianGrid {...GRID} />
+                  <XAxis dataKey="label" {...AXIS} interval="preserveStartEnd" />
+                  <YAxis {...AXIS} width={44} />
+                  <Tooltip {...TOOLTIP} formatter={km} />
+                  <Legend wrapperStyle={{ fontSize: 12, color: 'var(--muted)' }} />
+                  <Bar dataKey="quality" name="Huvuddel" fill="var(--accent)" radius={[4, 4, 0, 0]} maxBarSize={12} />
+                  <Bar dataKey="easyParts" name="Uppvärmning och nedjogg" fill="var(--line)" radius={[4, 4, 0, 0]} maxBarSize={12} />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           </ChartBlock>
         )}

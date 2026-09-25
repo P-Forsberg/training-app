@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { createShoe, type RunPatch } from '@/data/commands/logging';
 import type { LoggedRunRow, LoggedSessionRow } from '@/data/rows';
 import { useShoes } from '@/data/repository';
+import { partsSum } from '@/domain/runParts';
 import { DEFAULT_RETIRE_KM, isSurfaceMismatch, type RunSurface, type ShoeSurface } from '@/domain/shoeMileage';
 import { Button, CommitInput, Field, inputClass, Segmented, Select } from '@/ui/components';
 import { cn } from '@/ui/cn';
@@ -20,6 +21,7 @@ export function RunForm({
   run,
   logged,
   saveRun,
+  saveDistance,
   saveSession,
 }: {
   idPrefix: string;
@@ -27,26 +29,32 @@ export function RunForm({
   run?: LoggedRunRow;
   logged?: LoggedSessionRow;
   saveRun: (patch: RunPatch) => Promise<void>;
+  /** Saves the total. For structured runs this also switches the part-sum automation on/off. */
+  saveDistance?: (km: number | null) => Promise<void>;
   saveSession: (patch: { feel?: number | null; comment?: string | null }) => Promise<void>;
 }) {
   const shoes = useShoes();
   const [addingShoe, setAddingShoe] = useState(false);
   const shoe = shoes?.find((s) => s.shoe.id === run?.shoe_id)?.shoe;
   const distance = run?.distance_km ?? plannedKm ?? null;
+  const parts = run ? partsSum({ warmup_km: run.warmup_km ?? null, main_km: run.main_km ?? null, cooldown_km: run.cooldown_km ?? null }) : null;
+  const hint = [plannedKm != null ? `plan ${formatKm(plannedKm)}` : null, parts != null ? `delar ${formatKm(parts)}` : null].filter(Boolean).join(' · ');
 
   return (
     <div className="px-4 pb-2">
-      <Field label="Distans (km)" htmlFor={`${idPrefix}-km`} hint={plannedKm != null ? `plan ${formatKm(plannedKm)}` : undefined}>
+      <Field label="Distans (km)" htmlFor={`${idPrefix}-km`} hint={hint || undefined}>
         <CommitInput
           id={`${idPrefix}-km`}
           inputMode="decimal"
           className="w-24"
           value={formatNumber(distance)}
+          title={run?.distance_manual ? 'Du har skrivit distansen själv. Töm fältet för att summera delarna igen.' : undefined}
           errorText="Skriv distansen som en siffra, till exempel 12,5."
           onCommit={async (t) => {
             const v = parseDecimal(t);
             if (v === undefined || (v != null && v < 0)) return false;
-            await saveRun({ distance_km: v });
+            if (saveDistance) await saveDistance(v);
+            else await saveRun({ distance_km: v });
           }}
         />
       </Field>

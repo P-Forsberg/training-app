@@ -1,4 +1,4 @@
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useDbQuery } from '@/data/live';
 import { useState } from 'react';
 import { unshareProgram } from '@/data/commands/program';
 import { db } from '@/data/local/db';
@@ -10,7 +10,7 @@ import { cn } from '@/ui/cn';
 /** Share the active program read-only with another user (partner, coach). */
 export function ShareProgram({ programId }: { programId: string }) {
   const user = useSyncStore((s) => s.user);
-  const shares = useLiveQuery(
+  const shares = useDbQuery(
     async () => (await db.program_shares.where('program_id').equals(programId).toArray()).filter((s) => !s.deleted_at && s.owner === user?.id),
     [programId, user?.id],
   );

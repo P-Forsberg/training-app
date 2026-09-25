@@ -5,7 +5,7 @@ import { syntheticKullamannen } from '@/import/fixtures/syntheticKullamannen';
 import { db } from '../local/db';
 import { resetOwnerCache } from '../session';
 import { commit, LayerViolationError } from '../sync/commit';
-import { completePlannedSession, createShoe, logPlannedRun, logPlannedSet, movePlannedSession, setPlannedStatus } from './logging';
+import { completePlannedSession, createShoe, editPlannedRunField, logPlannedRun, toggleInterval, logPlannedSet, movePlannedSession, setPlannedStatus } from './logging';
 import { importProgram } from './program';
 import { undoBatch } from './undo';
 
@@ -116,6 +116,37 @@ describe('logging never touches the planned layer', () => {
     const run = (await db.planned_sessions.where('program_id').equals(programId).toArray()).find((s) => s.type === 'run')!;
     await completePlannedSession(run.id, 'done', 5);
     expect((await db.logged_runs.toArray())[0]!.distance_km).toBe(5);
+  });
+
+  it('structured run: parts are stored separately and the total follows them until typed by hand', async () => {
+    const { programId } = await importSynthetic();
+    const wed = (await db.planned_sessions.where('program_id').equals(programId).toArray()).find((s) => s.type === 'run' && s.date === '2026-09-23')!;
+    expect(wed.notes).toMatch(/^Intervaller:/);
+
+    await editPlannedRunField(wed.id, 'warmup_km', 3);
+    await editPlannedRunField(wed.id, 'main_km', 4.1);
+    await editPlannedRunField(wed.id, 'cooldown_km', 3);
+    let run = (await db.logged_runs.toArray())[0]!;
+    expect(run).toMatchObject({ warmup_km: 3, main_km: 4.1, cooldown_km: 3, distance_km: 10.1, distance_manual: false });
+
+    await editPlannedRunField(wed.id, 'distance_km', 11);
+    await editPlannedRunField(wed.id, 'cooldown_km', 4);
+    run = (await db.logged_runs.toArray())[0]!;
+    expect(run).toMatchObject({ cooldown_km: 4, distance_km: 11, distance_manual: true });
+
+    await editPlannedRunField(wed.id, 'distance_km', null);
+    run = (await db.logged_runs.toArray())[0]!;
+    expect(run).toMatchObject({ distance_km: 11.1, distance_manual: false });
+  });
+
+  it('intervals are ticked and unticked one by one', async () => {
+    const { programId } = await importSynthetic();
+    const wed = (await db.planned_sessions.where('program_id').equals(programId).toArray()).find((s) => s.type === 'run' && s.date === '2026-09-23')!;
+    await Promise.all([toggleInterval(wed.id, 1), toggleInterval(wed.id, 3), toggleInterval(wed.id, 2)]);
+    expect((await db.logged_runs.toArray())[0]!.intervals_done).toEqual([1, 2, 3]);
+    await toggleInterval(wed.id, 2);
+    expect((await db.logged_runs.toArray())[0]!.intervals_done).toEqual([1, 3]);
+    expect(await db.logged_runs.count()).toBe(1);
   });
 
   it('editing the same run twice updates one row', async () => {

@@ -9,17 +9,18 @@ test('capture main screens', async ({ page }) => {
   const dir = process.env.SCREENSHOT_DIR!;
   const wb = XLSX.utils.book_new();
   const data = syntheticKullamannen(4);
-  // Week 1 describes its sessions in the focus text, like real plans do.
-  data.Veckoplan![1]![15] = 'Testfokus. Tempo ons: 3x6 min. Långpass lör.';
-  data.Veckoplan![1]![6] = 7; // a Wednesday run to carry the tempo label
   for (const [name, rows] of Object.entries(data)) XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), name);
   await page.goto('/#/import');
   await page.getByTestId('import-file').setInputFiles({ name: 'Testplan.xlsx', mimeType: 'application/octet-stream', buffer: XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer });
   await page.screenshot({ path: `${dir}/review.png`, fullPage: true });
   await page.getByRole('button', { name: /Importera/ }).click();
   await page.getByRole('link', { name: /Mån/ }).first().waitFor();
-  await page.goto('/#/dag/2026-09-21');
-  await page.getByRole('button', { name: /Box Squat/ }).click();
+  await page.goto('/#/dag/2026-09-23');
+  await page.getByRole('button', { name: 'Intervall 1', exact: true }).click();
+  await page.getByRole('button', { name: 'Intervall 2', exact: true }).click();
+  await page.getByRole('button', { name: /Uppvärmning/ }).click();
+  await page.getByLabel('Faktisk distans (km)').first().fill('3,2');
+  await page.getByLabel('Faktisk distans (km)').first().press('Enter');
   await page.screenshot({ path: `${dir}/day.png`, fullPage: true });
   await page.goto('/#/vecka/2026-09-21');
   await page.screenshot({ path: `${dir}/week.png`, fullPage: true });

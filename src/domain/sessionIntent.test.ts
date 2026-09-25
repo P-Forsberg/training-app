@@ -62,6 +62,22 @@ describe('deriveRunIntents', () => {
     expect(r.get('r2')).toBeUndefined();
   });
 
+  it.each([
+    ['Intervaller: 6×2 min i 10 km-fart, 2 min trav. 3 km uppvärmning, 3 km nedjogg.', 'interval', '6×2 min'],
+    ['Backar: 8×2 min uppför, jogga ned som vila. 5 km uppvärmning, 3 km nedjogg.', 'hills', '8×2 min'],
+    ['Tempo: 2×18 min i halvmarafart, 4 min trav. 3 km uppvärmning, 2 km nedjogg.', 'tempo', '2×18 min'],
+    ['Progressivt 16 km: lugnt de första 11 km, sista 5 km stadigt i maratonfart.', 'progressive', '16 km'],
+    ['Lugnt 9 km med 6×20 s stegringar sist.', 'easy', undefined],
+  ])('quality column text %s → %s', (text, intent, detail) => {
+    const r = deriveRunIntents({ monday: MON, weekTexts: [], dayNotes: { [addDaysIso(MON, 2)]: text }, runs: [run(1), run(2)] });
+    expect(r.get('r2')).toEqual({ intent, ...(detail ? { detail } : {}), source: 'text' });
+  });
+
+  it('a quality session from the day column makes the other runs easy', () => {
+    const r = deriveRunIntents({ monday: MON, weekTexts: [], dayNotes: { [addDaysIso(MON, 2)]: 'Tempo: 2×18 min i halvmarafart, 4 min trav. 3 km uppvärmning, 2 km nedjogg.' }, runs: [run(1), run(2)] });
+    expect(r.get('r1')).toMatchObject({ intent: 'easy', source: 'default' });
+  });
+
   it('a title set by the user wins over the text', () => {
     const r = deriveRunIntents({ monday: MON, weekTexts: ['Tempo ons: 3x6 min.'], dayNotes: {}, runs: [run(2, 'Lugnt')] });
     expect(r.get('r2')).toEqual({ intent: 'easy', source: 'title' });

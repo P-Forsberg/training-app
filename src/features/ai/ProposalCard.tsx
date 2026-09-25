@@ -1,4 +1,4 @@
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useDbQuery } from '@/data/live';
 import { useState } from 'react';
 import { db } from '@/data/local/db';
 import { Button } from '@/ui/components';
@@ -8,7 +8,7 @@ import { applyProposal, describeDiff, ProposalDiff, rejectProposal, undoProposal
 
 /** A proposal as a diff card: what changes, why, and Godkänn / Avvisa. Accepted ones can be undone. */
 export function ProposalCard({ proposalId }: { proposalId: string }) {
-  const proposal = useLiveQuery(() => db.proposals.get(proposalId), [proposalId]);
+  const proposal = useDbQuery(() => db.proposals.get(proposalId), [proposalId]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   if (!proposal) return null;
