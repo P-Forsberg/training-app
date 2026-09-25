@@ -1,15 +1,26 @@
 import type { SheetData } from '../cells';
 
 /**
- * Synthetic workbook with the Veckoplan/Styrka layout. All values are invented
- * and obviously fake ("Testfas", round numbers). Never put real user data here.
- * Dates are Excel serials, as SheetJS delivers them: 46286 = 2026-09-21 (Monday).
+ * Synthetic workbook with the Veckoplan/Styrka layout (Veckoplan: 17 columns,
+ * with "Onsdag – kvalitetspass" in P and the focus text in Q). All values are
+ * invented and obviously fake ("Testfas", round numbers). Never put real user
+ * data here. Dates are Excel serials, as SheetJS delivers them:
+ * 46286 = 2026-09-21 (Monday).
  */
 export const SYNTH_FIRST_MONDAY_SERIAL = 46286;
 
+/** The five documented quality-session formats, one per week (cycled). */
+export const QUALITY_EXAMPLES = [
+  'Intervaller: 6×2 min i 10 km-fart, 2 min trav. 3 km uppvärmning, 3 km nedjogg.',
+  'Backar: 8×2 min uppför, jogga ned som vila. 5 km uppvärmning, 3 km nedjogg.',
+  'Tempo: 2×18 min i halvmarafart, 4 min trav. 3 km uppvärmning, 2 km nedjogg.',
+  'Progressivt 16 km: lugnt de första 11 km, sista 5 km stadigt i maratonfart.',
+  'Lugnt 9 km med 6×20 s stegringar sist.',
+];
+
 const planHeader = [
   'Vecka', 'Måndag', 'Fas', 'Veckor kvar', 'Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör', 'Sön',
-  'Summa', 'Löppass', 'Styrkepass', 'Styrkeläge', 'Fokus',
+  'Summa km', 'Löppass', 'Styrkepass', 'Styrkeläge', 'Onsdag – kvalitetspass', 'Veckans fokus och nyckelpass',
 ];
 const strengthHeader = [
   'Vecka', 'Datum', 'Cykel', 'Programvecka', 'Läge underkropp', 'Måndagsinstruktion',
@@ -22,10 +33,10 @@ export function syntheticKullamannen(weeks = 4): SheetData {
   for (let w = 1; w <= weeks; w++) {
     const serial = SYNTH_FIRST_MONDAY_SERIAL + (w - 1) * 7;
     const backToBack = w % 2 === 0;
-    const km = [5, 6, 0, 6, 0, 10, backToBack ? 8 : 0];
+    const km = [5, 6, 10, 6, 0, 10, backToBack ? 8 : 0];
     plan.push([
       w, serial, 'Testfas', weeks - w, ...km, km.reduce((a, b) => a + b, 0),
-      km.filter(Boolean).length, 3, 'Full', `Testfokus vecka ${w}`,
+      km.filter(Boolean).length, 3, 'Full', QUALITY_EXAMPLES[(w - 1) % QUALITY_EXAMPLES.length], `Testfokus vecka ${w}`,
     ]);
     strength.push([
       w, serial, 'Testcykel', w, 'Normal', `Testinstruktion vecka ${w}`,

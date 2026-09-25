@@ -131,49 +131,64 @@ export type Database = {
       }
       logged_runs: {
         Row: {
+          cooldown_km: number | null
           created_at: string
           deleted_at: string | null
           distance_km: number | null
+          distance_manual: boolean
           duration_sec: number | null
           elevation_m: number | null
           id: string
+          intervals_done: number[]
           is_night: boolean
           logged_session_id: string
+          main_km: number | null
           owner: string
           server_updated_at: string
           shoe_id: string | null
           surface: string | null
           updated_at: string
+          warmup_km: number | null
         }
         Insert: {
+          cooldown_km?: number | null
           created_at?: string
           deleted_at?: string | null
           distance_km?: number | null
+          distance_manual?: boolean
           duration_sec?: number | null
           elevation_m?: number | null
           id?: string
+          intervals_done?: number[]
           is_night?: boolean
           logged_session_id: string
+          main_km?: number | null
           owner: string
           server_updated_at?: string
           shoe_id?: string | null
           surface?: string | null
           updated_at?: string
+          warmup_km?: number | null
         }
         Update: {
+          cooldown_km?: number | null
           created_at?: string
           deleted_at?: string | null
           distance_km?: number | null
+          distance_manual?: boolean
           duration_sec?: number | null
           elevation_m?: number | null
           id?: string
+          intervals_done?: number[]
           is_night?: boolean
           logged_session_id?: string
+          main_km?: number | null
           owner?: string
           server_updated_at?: string
           shoe_id?: string | null
           surface?: string | null
           updated_at?: string
+          warmup_km?: number | null
         }
         Relationships: [
           {
