@@ -1,8 +1,9 @@
 import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
-import { deleteLoggedSet, logPlannedSet, skipPlannedExercise } from '@/data/commands/logging';
+import { deleteLoggedSet, logPlannedSet, skipPlannedExercise, substituteExercise } from '@/data/commands/logging';
 import type { LoggedSetRow, PlannedItemRow } from '@/data/rows';
-import { usePreviousSets } from '@/data/repository';
+import { useExercises, usePreviousSets } from '@/data/repository';
+import { ExercisePicker } from './ExercisePicker';
 import { itemLabel } from './labels';
 import { Button, CommitInput } from '@/ui/components';
 import { cn } from '@/ui/cn';
@@ -31,7 +32,10 @@ export function StrengthForm({
   onChanged?: () => void;
 }) {
   const [open, setOpen] = useState<Record<string, boolean>>({});
-  const exerciseIds = items.map((i) => i.exercise_id).filter((id): id is string => !!id);
+  const exercises = useExercises();
+  // The exercise actually done: a swap is stored on the logged sets.
+  const performed = (item: PlannedItemRow) => sets.find((s) => s.planned_item_id === item.id)?.exercise_id ?? item.exercise_id;
+  const exerciseIds = items.map(performed).filter((id): id is string => !!id);
   const previous = usePreviousSets(exerciseIds, date);
 
   return (
@@ -50,7 +54,10 @@ export function StrengthForm({
         const skipped = itemSets.length > 0 && itemSets.every((s) => s.skipped);
         const doneSets = itemSets.filter((s) => !s.skipped && (s.weight_kg != null || s.reps != null || s.duration_sec != null)).length;
         const isOpen = !!open[item.id];
-        const prev = item.exercise_id ? previous?.get(item.exercise_id) : undefined;
+        const performedId = performed(item);
+        const swapped = performedId !== item.exercise_id;
+        const performedName = swapped ? (performedId && exercises?.get(performedId)?.canonical_name) || 'Annan övning' : name;
+        const prev = performedId ? previous?.get(performedId) : undefined;
         return (
           <li key={item.id} className="border-b border-line last:border-b-0">
             <button
@@ -59,7 +66,10 @@ export function StrengthForm({
               onClick={() => setOpen((o) => ({ ...o, [item.id]: !o[item.id] }))}
               className="flex min-h-12 w-full items-center gap-3 py-2 text-left"
             >
-              <span className={cn('text-[14.5px] font-medium', skipped && 'text-muted line-through')}>{name}</span>
+              <span className="flex flex-col">
+                <span className={cn('text-[14.5px] font-medium', skipped && 'text-muted line-through')}>{performedName}</span>
+                {swapped && <span className="text-xs text-muted">planerat: {name}</span>}
+              </span>
               {item.parse_confidence < 1 && <span className="text-[11px] text-warn">kontrollera</span>}
               <span className="ml-auto whitespace-nowrap text-sm text-muted">
                 {doneSets > 0 && <span className="mr-2 text-accent">{doneSets} set</span>}
@@ -75,6 +85,8 @@ export function StrengthForm({
                 previous={prev}
                 skipped={skipped}
                 onChanged={onChanged}
+                plannedName={name}
+                performedId={performedId}
               />
             )}
           </li>
@@ -91,6 +103,8 @@ function SetGrid({
   previous,
   skipped,
   onChanged,
+  plannedName,
+  performedId,
 }: {
   plannedSessionId: string;
   item: PlannedItemRow;
@@ -98,8 +112,11 @@ function SetGrid({
   previous?: { date: string; sets: LoggedSetRow[] };
   skipped: boolean;
   onChanged?: () => void;
+  plannedName: string;
+  performedId: string | null;
 }) {
   const [extra, setExtra] = useState(0);
+  const [picking, setPicking] = useState(false);
   const timed = item.rep_scheme === 'time';
   const maxLogged = sets.reduce((m, s) => Math.max(m, s.set_no), 0);
   const count = Math.max(plannedSetCount(item), maxLogged) + extra;
@@ -183,10 +200,21 @@ function SetGrid({
         <Button size="sm" variant="ghost" className="text-accent" onClick={() => setExtra((n) => n + 1)}>
           + Lägg till set
         </Button>
+        <Button size="sm" variant="ghost" onClick={() => setPicking(true)}>
+          Byt övning
+        </Button>
         <Button size="sm" variant="ghost" className="ml-auto" onClick={() => void skipPlannedExercise(plannedSessionId, item.id, !skipped)}>
-          {skipped ? 'Ångra hoppa över' : 'Hoppa över övningen'}
+          {skipped ? 'Ångra hoppa över' : 'Hoppa över'}
         </Button>
       </div>
+      <ExercisePicker
+        open={picking}
+        onClose={() => setPicking(false)}
+        plannedName={plannedName}
+        plannedId={item.exercise_id}
+        currentId={performedId}
+        onPick={(id) => substituteExercise(plannedSessionId, item.id, id)}
+      />
     </div>
   );
 }

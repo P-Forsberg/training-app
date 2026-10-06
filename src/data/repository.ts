@@ -244,7 +244,10 @@ export function useExercises(): Map<string, ExerciseRow> | undefined {
 export async function loadPreviousSets(exerciseIds: string[], beforeDate: string): Promise<Map<string, { date: string; sets: LoggedSetRow[] }>> {
   const out = new Map<string, { date: string; sets: LoggedSetRow[] }>();
   if (!exerciseIds.length) return out;
-  const sets = live(await db.logged_sets.where('exercise_id').anyOf(exerciseIds).toArray()).filter((s) => !s.skipped);
+  // Empty sets (e.g. one that only carries an exercise swap) are not a previous result.
+  const sets = live(await db.logged_sets.where('exercise_id').anyOf(exerciseIds).toArray()).filter(
+    (s) => !s.skipped && (s.weight_kg != null || s.reps != null || s.duration_sec != null),
+  );
   const sessionIds = [...new Set(sets.map((s) => s.logged_session_id))];
   const sessions = new Map(live(await db.logged_sessions.bulkGet(sessionIds).then((r) => r.filter((x): x is LoggedSessionRow => !!x))).map((s) => [s.id, s]));
   for (const id of exerciseIds) {

@@ -23,6 +23,8 @@ test('import a file, open a day, log a run, see the week total update', async ({
   await expect(page.getByRole('heading', { name: '1 ny övning' })).toBeVisible();
   await expect(page.getByText('Okänd testövning')).toBeVisible();
   await page.getByRole('button', { name: 'Importera 4 veckor' }).click();
+  // The app navigates to the week view after import; wait so it does not override the next goto.
+  await page.getByRole('link', { name: /Mån/ }).first().waitFor();
 
   // Week 1 (Monday 2026-09-21): 5 + 6 + 10 + 6 + 10 = 37 km planned, nothing logged yet.
   await page.goto('/#/vecka/2026-09-21');
@@ -86,4 +88,38 @@ test('structured quality session: tick intervals, log the parts, the total follo
   await page.getByLabel('Distans (km)', { exact: true }).fill('');
   await page.getByLabel('Distans (km)', { exact: true }).press('Enter');
   await expect(page.getByLabel('Distans (km)', { exact: true })).toHaveValue('11,1');
+});
+
+test('swap an exercise during logging: performed and planned are both shown', async ({ page }) => {
+  await page.goto('/#/import');
+  await page.getByTestId('import-file').setInputFiles({
+    name: 'Testplan.xlsx',
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    buffer: syntheticWorkbook(),
+  });
+  await page.getByRole('button', { name: 'Importera 4 veckor' }).click();
+  await page.getByRole('link', { name: /Mån/ }).first().waitFor();
+
+  await page.goto('/#/dag/2026-09-21');
+  await page.getByRole('button', { name: /Leg Curl/ }).click();
+  await page.getByRole('button', { name: 'Byt övning' }).click();
+  await page.getByLabel('Sök övning').fill('Landmine Row');
+  await page.getByRole('button', { name: 'Lägg till ”Landmine Row” som egen övning' }).click();
+
+  const row = page.getByRole('button', { name: /Landmine Row/ });
+  await expect(row).toBeVisible();
+  await expect(row).toContainText('planerat: Leg Curl');
+
+  await page.getByLabel('Set 1, vikt i kilo').fill('40');
+  await page.getByLabel('Set 1, vikt i kilo').press('Enter');
+  await expect(row).toContainText('1 set');
+
+  // Swap to a catalog exercise found by its Swedish alias, then back to the plan.
+  await page.getByRole('button', { name: 'Byt övning' }).click();
+  await page.getByLabel('Sök övning').fill('hantelrodd');
+  await page.getByRole('button', { name: /^Dumbbell Row/ }).click();
+  await expect(page.getByRole('button', { name: /Dumbbell Row/ })).toContainText('planerat: Leg Curl');
+  await page.getByRole('button', { name: 'Byt övning' }).click();
+  await page.getByRole('button', { name: 'Använd den planerade övningen (Leg Curl)' }).click();
+  await expect(page.getByText('planerat: Leg Curl')).toHaveCount(0);
 });

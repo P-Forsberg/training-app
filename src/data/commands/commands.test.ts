@@ -5,7 +5,7 @@ import { syntheticKullamannen } from '@/import/fixtures/syntheticKullamannen';
 import { db } from '../local/db';
 import { resetOwnerCache } from '../session';
 import { commit, LayerViolationError } from '../sync/commit';
-import { completePlannedSession, createShoe, editPlannedRunField, logPlannedRun, toggleInterval, logPlannedSet, movePlannedSession, setPlannedStatus } from './logging';
+import { completePlannedSession, createExercise, createShoe, editPlannedRunField, substituteExercise, logPlannedRun, toggleInterval, logPlannedSet, movePlannedSession, setPlannedStatus } from './logging';
 import { importProgram } from './program';
 import { undoBatch } from './undo';
 
@@ -147,6 +147,43 @@ describe('logging never touches the planned layer', () => {
     await toggleInterval(wed.id, 2);
     expect((await db.logged_runs.toArray())[0]!.intervals_done).toEqual([1, 3]);
     expect(await db.logged_runs.count()).toBe(1);
+  });
+
+  it('swapping an exercise is stored on the logged sets; the plan is untouched', async () => {
+    const { programId } = await importSynthetic();
+    const strength = (await db.planned_sessions.where('program_id').equals(programId).toArray()).find((s) => s.type === 'strength')!;
+    const item = (await db.planned_items.where('planned_session_id').equals(strength.id).toArray()).find((i) => i.kind === 'exercise')!;
+    const plannedBefore = JSON.stringify(await db.planned_items.get(item.id));
+
+    const landmine = await createExercise('Landmine Row');
+    expect(await createExercise('  landmine   row ')).toBe(landmine); // reused, not duplicated
+
+    // Swap before any set is logged: an empty first set carries the swap.
+    await substituteExercise(strength.id, item.id, landmine);
+    let sets = await db.logged_sets.toArray();
+    expect(sets).toHaveLength(1);
+    expect(sets[0]).toMatchObject({ exercise_id: landmine, weight_kg: null, reps: null });
+
+    // New sets use the swapped exercise.
+    await logPlannedSet(strength.id, item.id, 2, { weight_kg: 40, reps: 10 });
+    sets = await db.logged_sets.toArray();
+    expect(sets.every((s) => s.exercise_id === landmine)).toBe(true);
+
+    // The plan still says what was planned.
+    expect(JSON.stringify(await db.planned_items.get(item.id))).toBe(plannedBefore);
+
+    // Back to the planned exercise: all sets follow.
+    await substituteExercise(strength.id, item.id, null);
+    sets = await db.logged_sets.toArray();
+    expect(sets.every((s) => s.exercise_id === item.exercise_id)).toBe(true);
+  });
+
+  it('swapping to an unknown exercise id is refused', async () => {
+    const { programId } = await importSynthetic();
+    const strength = (await db.planned_sessions.where('program_id').equals(programId).toArray()).find((s) => s.type === 'strength')!;
+    const item = (await db.planned_items.where('planned_session_id').equals(strength.id).toArray())[0]!;
+    await expect(substituteExercise(strength.id, item.id, '00000000-0000-4000-8000-00000000dead')).rejects.toThrow();
+    expect(await db.logged_sets.count()).toBe(0);
   });
 
   it('editing the same run twice updates one row', async () => {

@@ -120,6 +120,8 @@ Allt har `id`, `created_at`, `updated_at`, `deleted_at` (mjuk radering). Synk ä
 
 Strukturerade löppass: dagens kvalitetspass står som text i `planned_sessions.notes` (från t.ex. kolumnen "Onsdag – kvalitetspass"). `domain/structuredRun.ts` tolkar formen "Typ: huvuddel. N km uppvärmning, M km nedjogg". Loggade delar sparas var för sig på `logged_runs` (`warmup_km`, `main_km`, `cooldown_km`, `intervals_done`). `distance_km` följer summan av delarna tills användaren skriver totalen själv (`distance_manual = true`), se `domain/runParts.ts`.
 
+Byte av övning under ett pass loggas på `logged_sets.exercise_id`, aldrig i `planned_items`. Den utförda övningen är setens övning om den finns, annars den planerade.
+
 Importen av Veckoplan läser kolumner via rubrikraden (`import/planHeader.ts`), aldrig via fasta index. En kolumn med rubriken "Veckodag – något" kopplas till den veckodagen.
 
 UI läser lokal data med `useDbQuery` (`data/live.ts`), inte `useLiveQuery`. Den senare tappar ändringsspårningen i webbläsaren så fort en fråga väntar på ett promise som inte kommer från Dexie, och då slutar vyn uppdateras utan felmeddelande.

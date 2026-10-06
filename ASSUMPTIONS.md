@@ -198,3 +198,15 @@ Antagande: "Progressivt" är en egen passtyp och räknas som kvalitetspass.
 Varför: exemplet "Progressivt 16 km … sista 5 km i maratonfart" är varken lugnt eller tempo.
 Så ändras det: `KEYWORDS` och `QUALITY` i `domain/sessionIntent.ts`.
 Status: öppen
+
+## 2026-10-06 · Byta övning
+Antagande: att byta övning under ett pass är en loggning, inte en ändring i planen. Bytet sparas som `exercise_id` på passets loggade set, planen står kvar, och raden visar "planerat: …" under den utförda övningen. Byter man innan något set är loggat skapas ett tomt första set som bär bytet.
+Varför: planerat och loggat är två skilda lager. Statistik och "förra gången" ska räknas på det man faktiskt körde.
+Så ändras det: `substituteExercise()` i `data/commands/logging.ts`. Ett permanent byte i planen görs i stället via AI-förslag eller som en planändring.
+Status: öppen
+
+## 2026-10-06 · Byta övning
+Antagande: en övning som inte finns i katalogen ("Landmine Row") läggs till som användarens egen övning och synkas. En egen övning med samma namn återanvänds i stället för att dupliceras.
+Varför: den globala katalogen ligger i en migrering som redan körts i molnet. Nya globala övningar kräver en ny migrering.
+Så ändras det: lägg till i `scripts/exercise-catalog.source.json` och skapa en ny migrering för de nya raderna (ändra inte 20260923000003).
+Status: öppen

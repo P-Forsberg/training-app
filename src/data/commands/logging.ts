@@ -1,9 +1,10 @@
 import { z } from 'zod';
 import { isIsoDate } from '@/domain/dates';
+import { normalizeExerciseName } from '@/domain/exerciseParser';
 import { applyRunEdit, type RunPartField, type RunParts } from '@/domain/runParts';
 import { DEFAULT_RETIRE_KM } from '@/domain/shoeMileage';
 import { db } from '../local/db';
-import type { LoggedRunRow, LoggedSessionRow, LoggedSetRow, PlannedSessionRow, ProfileRow, ShoeRow } from '../rows';
+import type { ExerciseRow, LoggedRunRow, LoggedSessionRow, LoggedSetRow, PlannedItemRow, PlannedSessionRow, ProfileRow, ShoeRow } from '../rows';
 import { baseColumns, getOwnerId, nowStamp } from '../session';
 import { commit, serial, softDeleted, type Change } from '../sync/commit';
 
@@ -211,6 +212,85 @@ export const SetPatch = z.object({
 });
 export type SetPatch = z.input<typeof SetPatch>;
 
+/**
+ * The exercise actually done for a planned item: the one on its logged sets if
+ * the user swapped it, otherwise the planned one.
+ */
+function performedExerciseId(item: PlannedItemRow, sets: LoggedSetRow[]): string | null {
+  return sets.find((s) => s.planned_item_id === item.id && !s.deleted_at)?.exercise_id ?? item.exercise_id;
+}
+
+/**
+ * Swaps the exercise of a planned item for this session only ("Hantelrodd"
+ * planned, "Landmine Row" done). The plan is untouched: the swap is stored on
+ * the logged sets, so planned and performed stay visible side by side.
+ * exerciseId null returns to the planned exercise.
+ */
+async function substituteExerciseImpl(plannedSessionId: string, plannedItemId: string, exerciseId: string | null): Promise<void> {
+  const p = await planned(plannedSessionId);
+  const item = await db.planned_items.get(plannedItemId);
+  if (!item) throw new Error('Övningen finns inte längre i planen.');
+  const target = exerciseId ?? item.exercise_id;
+  if (exerciseId && !(await db.exercises.get(exerciseId))) throw new Error('Övningen finns inte i katalogen.');
+  const logged = await loggedFor(p);
+  const owner = await getOwnerId();
+  const sets = (await db.logged_sets.where('logged_session_id').equals(logged.id).toArray()).filter(
+    (s) => s.planned_item_id === plannedItemId && !s.deleted_at,
+  );
+  const changes: Change[] = [{ table: 'logged_sessions', row: logged }];
+  if (sets.length) {
+    for (const s of sets) changes.push({ table: 'logged_sets', row: { ...s, exercise_id: target } });
+  } else if (target !== item.exercise_id) {
+    // Nothing logged yet: an empty first set carries the swap until values are entered.
+    changes.push({
+      table: 'logged_sets',
+      row: {
+        ...baseColumns(owner),
+        logged_session_id: logged.id,
+        planned_item_id: plannedItemId,
+        exercise_id: target,
+        set_no: 1,
+        weight_kg: null,
+        reps: null,
+        rpe: null,
+        duration_sec: null,
+        is_warmup: false,
+        skipped: false,
+      },
+    });
+  } else {
+    return;
+  }
+  await commit(changes, { layer: 'logged' });
+}
+
+/**
+ * Adds the user's own exercise (e.g. "Landmine Row") and returns its id. An
+ * existing exercise with the same name is reused instead of duplicated.
+ */
+async function createExerciseImpl(name: string): Promise<string> {
+  const clean = name.trim().replace(/\s+/g, ' ');
+  if (!clean) throw new Error('Övningen behöver ett namn.');
+  if (clean.length > 80) throw new Error('Namnet är för långt. Använd högst 80 tecken.');
+  const owner = await getOwnerId();
+  const key = normalizeExerciseName(clean);
+  const existing = (await db.exercises.toArray()).find(
+    (e) => !e.deleted_at && (e.owner === null || e.owner === owner) && [e.canonical_name, ...e.aliases].some((n) => normalizeExerciseName(n) === key),
+  );
+  if (existing) return existing.id;
+  const row: ExerciseRow = {
+    ...baseColumns(owner),
+    canonical_name: clean,
+    aliases: [],
+    category: null,
+    movement_pattern: null,
+    is_barbell: false,
+    notes: null,
+  };
+  await commit([{ table: 'exercises', row }], { layer: 'logged' });
+  return row.id;
+}
+
 /** Writes one set of a planned exercise. Creates the logged session on first input. */
 async function logPlannedSetImpl(
   plannedSessionId: string,
@@ -224,16 +304,15 @@ async function logPlannedSetImpl(
   if (!item) throw new Error('Övningen finns inte längre i planen.');
   const logged = await loggedFor(p);
   const owner = await getOwnerId();
-  const existing = (await db.logged_sets.where('logged_session_id').equals(logged.id).toArray()).find(
-    (s) => s.planned_item_id === plannedItemId && s.set_no === setNo && !s.deleted_at,
-  );
+  const sessionSets = await db.logged_sets.where('logged_session_id').equals(logged.id).toArray();
+  const existing = sessionSets.find((s) => s.planned_item_id === plannedItemId && s.set_no === setNo && !s.deleted_at);
   const set: LoggedSetRow = existing
     ? { ...existing, ...parsed }
     : {
         ...baseColumns(owner),
         logged_session_id: logged.id,
         planned_item_id: plannedItemId,
-        exercise_id: item.exercise_id,
+        exercise_id: performedExerciseId(item, sessionSets),
         set_no: setNo,
         weight_kg: null,
         reps: null,
@@ -410,6 +489,8 @@ async function completePlannedSessionImpl(plannedSessionId: string, status: Sess
 export const completePlannedSession = serial(completePlannedSessionImpl);
 export const editPlannedRunField = serial(editPlannedRunFieldImpl);
 export const toggleInterval = serial(toggleIntervalImpl);
+export const substituteExercise = serial(substituteExerciseImpl);
+export const createExercise = serial(createExerciseImpl);
 export const setPlannedStatus = serial(setPlannedStatusImpl);
 export const updatePlannedSessionLog = serial(updatePlannedSessionLogImpl);
 export const updateLoggedSession = serial(updateLoggedSessionImpl);
